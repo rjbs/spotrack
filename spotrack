@@ -1,0 +1,174 @@
+#!perl
+use 5.12.0;
+use warnings;
+
+use DBI;
+use File::HomeDir ();
+use Getopt::Long::Descriptive;
+use JSON 2 ();
+use LWP::UserAgent;
+use OAuth::Lite2;
+use OAuth::Lite2::Client::WebServer;
+use Path::Tiny;
+
+my ($opt, $usage) = describe_options(
+  "%c %o",
+  [ 'type=s', "what type of playlists to check", { default => 'discover' } ],
+);
+
+my $JSON = JSON->new;
+
+my $ROOT = path( File::HomeDir->my_home )->child(".spotify");
+die "no config root $ROOT\n" unless -d $ROOT;
+
+my $db_path = $ROOT->child("spotify.sqlite");
+die "no $db_path\n" unless -e $db_path;
+
+my $config = $JSON->decode( $ROOT->child("oauth.json")->slurp );
+
+my $id      = $config->{id};
+my $secret  = $config->{secret};
+my $refresh = $config->{refresh};
+
+my $client = OAuth::Lite2::Client::WebServer->new(
+  id               => $id,
+  secret           => $secret,
+  authorize_uri    => q{https://accounts.spotify.com/authorize},
+  access_token_uri => q{https://accounts.spotify.com/api/token},
+);
+
+my $token_obj = $client->refresh_access_token(refresh_token => $refresh);
+my $token = $token_obj->access_token;
+
+my $dbh = DBI->connect("dbi:SQLite:dbname=$db_path", undef, undef)
+  or die "can't open db: $DBI::errstr\n";
+
+my $ua = LWP::UserAgent->new(keep_alive => 1);
+
+sub get_tracks {
+  my ($user_id, $playlist_id) = @_;
+  my $uri = "https://api.spotify.com/v1/users/$user_id/playlists/$playlist_id";
+  my $res = $ua->get($uri, 'Authorization' => "Bearer $token");
+
+  unless ($res->is_success) {
+    warn "failed to get myself from Spotify: " . $res->status_line . "\n";
+    return;
+  }
+
+  my $playlist = $JSON->decode($res->decoded_content);
+  my $snapshot_id = $playlist->{snapshot_id};
+
+  my ($snapshot) = $dbh->selectrow_array(
+    "SELECT COUNT(*) FROM playlist_snapshots
+    WHERE id = ? AND playlist_id = ?",
+    { Slice => {} },
+    $snapshot_id,
+    $playlist_id,
+  );
+
+  my @tracks;
+  if ($snapshot) {
+    # we have a snapshot!
+    my $tracks_ref = $dbh->selectall_arrayref(
+      "SELECT * FROM playlist_snapshot_tracks
+      WHERE snapshot_id = ?",
+      { Slice => {} },
+      $snapshot_id,
+    );
+
+    @tracks = @$tracks_ref;
+  } else {
+    say "saving tracks for playlist snapshot $snapshot_id";
+
+    die "can't start transaction: " . $dbh->errstr . "\n"
+      unless $dbh->begin_work;
+
+    $dbh->do(
+      "INSERT INTO playlist_snapshots (id, playlist_id, snapshot_time)
+      VALUES (?, ?, ?)",
+      undef,
+      $snapshot_id, $playlist_id, $playlist->{tracks}{items}[0]{added_at},
+    );
+
+    my $sth = $dbh->prepare(
+      "INSERT INTO playlist_snapshot_tracks
+        (snapshot_id, position, track_id, artist, title)
+      VALUES (?, ?, ?, ?, ?)",
+    );
+
+    my $position = 1;
+    for my $item (@{ $playlist->{tracks}{items} }) {
+      my $track = $item->{track};
+
+      next if $track->{is_local}; # Should never happen, right?
+
+      my $artists = join q{; }, map {; $_->{name} } @{ $track->{artists} };
+
+      my $row = {
+        snapshot_id => $snapshot_id,
+        position    => $position++,
+        track_id    => $track->{id},
+        artist      => $artists,
+        title       => $track->{name},
+      };
+
+      push @tracks, $row;
+
+      $sth->execute($row->@{qw( snapshot_id position track_id artist title )});
+    }
+
+    die "can't commit transaction: " . $dbh->errstr . "\n"
+      unless $dbh->commit;
+  }
+
+  return { map {; $_->{track_id} => $_ } @tracks };
+}
+
+# create table playlists (
+#   id text primary key,
+#   generator text not null,
+#   type text not null,
+#   human text not null
+# );
+# create table playlist_snapshots (
+#   id text primary key,
+#   playlist_id text not null,
+#   snapshot_time text not null
+# );
+# create table playlist_snapshot_tracks (
+#   snapshot_id text not null,
+#   position integer not null,
+#   track_id text not null,
+#   artist text not null,
+#   title text not null
+# );
+
+my $playlists = $dbh->selectall_arrayref(
+  "SELECT id, generator, type, human FROM playlists WHERE type = ?",
+  { Slice => {} },
+  $opt->type,
+);
+
+die sprintf "no playlists of type %s\n", $opt->type unless @$playlists;
+
+my %tracks_for = map {;
+  "$_->{human}/$_->{type}" => get_tracks($_->{generator}, $_->{id})
+} @$playlists;
+
+my %on;
+my %track_label;
+for my $plkey (keys %tracks_for) {
+  my $pl = $tracks_for{$plkey};
+
+  for my $t (values %$pl) {
+    $track_label{ $t->{track_id } } //= "$t->{title} ($t->{artist})";
+    push $on{$t->{track_id}}->@*, $plkey;
+  }
+}
+
+my @duped = grep {; $on{$_}->@* > 1 } keys %on;
+
+for my $tid (sort { $track_label{$a} cmp $track_label{$b} } @duped) {
+  print "$track_label{$tid}\n";
+  print "  * $_\n" for sort $on{$tid}->@*;
+}
