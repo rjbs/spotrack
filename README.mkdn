@@ -1,0 +1,21 @@
+# Spotrack
+## It's not creepy!
+
+Spotrack is a tool for tracking and comparing Spotify playlists.  It was
+created to look up all my coworkers' Discover Weekly playlists and find common
+tracks.
+
+I've recently added history storage, so we can see tracks that move from one of
+us to the others, and tracks that appear over time.
+
+To use it, you need a `~/.spotrack/oauth.json` file that contains your client
+id, secret, and refresh tokens:
+
+    {
+      "id": "client-api-id",
+      "secret": "api-secret-token",
+      "refresh": "refresh-token"
+    }
+
+You'll also need `~/.spotrack/spotrack.sqlite`, which you can initialize with
+the DDL in the source.

@@ -18,10 +18,10 @@ my ($opt, $usage) = describe_options(
 
 my $JSON = JSON->new;
 
-my $ROOT = path( File::HomeDir->my_home )->child(".spotify");
+my $ROOT = path( File::HomeDir->my_home )->child(".spotrack");
 die "no config root $ROOT\n" unless -d $ROOT;
 
-my $db_path = $ROOT->child("spotify.sqlite");
+my $db_path = $ROOT->child("spotrack.sqlite");
 die "no $db_path\n" unless -e $db_path;
 
 my $config = $JSON->decode( $ROOT->child("oauth.json")->slurp );
