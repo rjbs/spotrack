@@ -58,22 +58,22 @@ sub get_tracks {
   my $playlist = $JSON->decode($res->decoded_content);
   my $snapshot_id = $playlist->{snapshot_id};
 
-  my ($snapshot) = $dbh->selectrow_array(
-    "SELECT COUNT(*) FROM playlist_snapshots
-    WHERE id = ? AND playlist_id = ?",
+  my ($snapshot_row_id) = $dbh->selectrow_array(
+    "SELECT id FROM playlist_snapshots
+    WHERE playlist_snapshot_id = ? AND playlist_id = ?",
     { Slice => {} },
     $snapshot_id,
     $playlist_id,
   );
 
   my @tracks;
-  if ($snapshot) {
+  if ($snapshot_row_id) {
     # we have a snapshot!
     my $tracks_ref = $dbh->selectall_arrayref(
       "SELECT * FROM playlist_snapshot_tracks
       WHERE snapshot_id = ?",
       { Slice => {} },
-      $snapshot_id,
+      $snapshot_row_id,
     );
 
     @tracks = @$tracks_ref;
@@ -84,11 +84,14 @@ sub get_tracks {
       unless $dbh->begin_work;
 
     $dbh->do(
-      "INSERT INTO playlist_snapshots (id, playlist_id, snapshot_time)
+      "INSERT INTO playlist_snapshots
+        (playlist_snapshot_id, playlist_id, snapshot_time)
       VALUES (?, ?, ?)",
       undef,
       $snapshot_id, $playlist_id, $playlist->{tracks}{items}[0]{added_at},
     );
+
+    my $row_id = $dbh->sqlite_last_insert_rowid;
 
     my $sth = $dbh->prepare(
       "INSERT INTO playlist_snapshot_tracks
@@ -105,7 +108,7 @@ sub get_tracks {
       my $artists = join q{; }, map {; $_->{name} } @{ $track->{artists} };
 
       my $row = {
-        snapshot_id => $snapshot_id,
+        snapshot_id => $row_id,
         position    => $position++,
         track_id    => $track->{id},
         artist      => $artists,
@@ -131,12 +134,13 @@ sub get_tracks {
 #   human text not null
 # );
 # create table playlist_snapshots (
-#   id text primary key,
+#   id integer primary key,
+#   playlist_snapshot_id text not null,
 #   playlist_id text not null,
 #   snapshot_time text not null
 # );
 # create table playlist_snapshot_tracks (
-#   snapshot_id text not null,
+#   snapshot_id integer not null,
 #   position integer not null,
 #   track_id text not null,
 #   artist text not null,
