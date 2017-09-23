@@ -2,6 +2,9 @@
 use 5.12.0;
 use warnings;
 
+use utf8;
+binmode *STDOUT, ':encoding(utf-8)';
+
 use DBI;
 use File::HomeDir ();
 use Getopt::Long::Descriptive;
@@ -40,8 +43,11 @@ my $client = OAuth::Lite2::Client::WebServer->new(
 my $token_obj = $client->refresh_access_token(refresh_token => $refresh);
 my $token = $token_obj->access_token;
 
-my $dbh = DBI->connect("dbi:SQLite:dbname=$db_path", undef, undef)
-  or die "can't open db: $DBI::errstr\n";
+my $dbh = DBI->connect(
+  "dbi:SQLite:dbname=$db_path",
+  undef, undef,
+  { sqlite_unicode => 1 }
+) or die "can't open db: $DBI::errstr\n";
 
 my $ua = LWP::UserAgent->new(keep_alive => 1);
 
@@ -127,52 +133,61 @@ sub get_tracks {
   return { map {; $_->{track_id} => $_ } @tracks };
 }
 
-# create table playlists (
-#   id text primary key,
-#   generator text not null,
-#   type text not null,
-#   human text not null
-# );
-# create table playlist_snapshots (
-#   id integer primary key,
-#   playlist_snapshot_id text not null,
-#   playlist_id text not null,
-#   snapshot_time text not null
-# );
-# create table playlist_snapshot_tracks (
-#   snapshot_id integer not null,
-#   position integer not null,
-#   track_id text not null,
-#   artist text not null,
-#   title text not null
-# );
+sub compare_playlists {
+  my $type = $opt->type;
 
-my $playlists = $dbh->selectall_arrayref(
-  "SELECT id, generator, type, human FROM playlists WHERE type = ?",
-  { Slice => {} },
-  $opt->type,
-);
+  my $playlists = $dbh->selectall_arrayref(
+    "SELECT id, generator, type, human FROM playlists WHERE type = ?",
+    { Slice => {} },
+    $type,
+  );
 
-die sprintf "no playlists of type %s\n", $opt->type unless @$playlists;
+  die sprintf "no playlists of type %s\n", $type unless @$playlists;
 
-my %tracks_for = map {;
-  "$_->{human}/$_->{type}" => get_tracks($_->{generator}, $_->{id})
-} @$playlists;
+  my %tracks_for = map {;
+    "$_->{human}/$_->{type}" => get_tracks($_->{generator}, $_->{id})
+  } @$playlists;
 
-my %on;
-my %track_label;
-for my $plkey (keys %tracks_for) {
-  my $pl = $tracks_for{$plkey};
+  my %on;
+  my %track_label;
+  for my $plkey (keys %tracks_for) {
+    my $pl = $tracks_for{$plkey};
 
-  for my $t (values %$pl) {
-    $track_label{ $t->{track_id } } //= "$t->{title} ($t->{artist})";
-    push $on{$t->{track_id}}->@*, $plkey;
+    for my $t (values %$pl) {
+      $track_label{ $t->{track_id } } //= "$t->{title} ($t->{artist})";
+      push $on{$t->{track_id}}->@*, $plkey;
+    }
+  }
+
+  my @duped = grep {; $on{$_}->@* > 1 } keys %on;
+
+  for my $tid (sort { $track_label{$a} cmp $track_label{$b} } @duped) {
+    print "$track_label{$tid}\n";
+    print "  * $_\n" for sort $on{$tid}->@*;
   }
 }
 
-my @duped = grep {; $on{$_}->@* > 1 } keys %on;
+compare_playlists($opt->type);
 
-for my $tid (sort { $track_label{$a} cmp $track_label{$b} } @duped) {
-  print "$track_label{$tid}\n";
-  print "  * $_\n" for sort $on{$tid}->@*;
-}
+__END__
+CREATE TABLE playlists (
+  id text PRIMARY KEY,
+  generator text NOT NULL,
+  type text NOT NULL,
+  human text NOT NULL
+);
+
+CREATE TABLE playlist_snapshots (
+  id integer PRIMARY KEY,
+  playlist_snapshot_id text NOT NULL,
+  playlist_id text NOT NULL,
+  snapshot_time text NOT NULL
+);
+
+CREATE TABLE playlist_snapshot_tracks (
+  snapshot_id integer NOT NULL,
+  position integer NOT NULL,
+  track_id text NOT NULL,
+  artist text NOT NULL,
+  title text NOT NULL
+);
