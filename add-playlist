@@ -1,0 +1,70 @@
+#!/usr/bin/env perl
+use 5.12.0;
+use warnings;
+
+use utf8;
+binmode *STDOUT, ':encoding(utf-8)';
+
+use Data::Dumper;
+use DBI;
+use File::HomeDir ();
+use Getopt::Long::Descriptive;
+use JSON 2 ();
+use LWP::UserAgent;
+use OAuth::Lite2;
+use OAuth::Lite2::Client::WebServer;
+use Path::Tiny;
+
+my ($opt, $usage) = describe_options(
+  "%c %o",
+  [ 'type|t=s',   "what type of playlists to add",        { required => 1 } ],
+  [ 'url|u=s',    "the URL to the playlist",              { required => 1 } ],
+  [ 'human|h=s',  "who's the human who owns this list?",  { required => 1 } ],
+);
+
+# https://open.spotify.com/user/spotify/playlist/37i9dQZF1E4ZfPe3oEsSxa
+
+my ($generator, $id) = $opt->url =~ qr{
+  \A
+  https://open\.spotify\.com
+  /user/(\w+)
+  /playlist/(\S+)
+  \z
+}x;
+
+die "didn't understand URL\n" unless $generator && $id;
+
+my $ROOT = path( File::HomeDir->my_home )->child(".spotrack");
+die "no config root $ROOT\n" unless -d $ROOT;
+
+my $db_path = $ROOT->child("spotrack.sqlite");
+die "no $db_path\n" unless -e $db_path;
+
+my $dbh = DBI->connect(
+  "dbi:SQLite:dbname=$db_path",
+  undef, undef,
+  { sqlite_unicode => 1 }
+) or die "can't open db: $DBI::errstr\n";
+
+my $rows = $dbh->selectall_arrayref(
+  "SELECT *
+  FROM playlists
+  WHERE (type = ? AND human = ?)
+     OR (id = ?)",
+  { Slice => {} },
+  $opt->type, $opt->human,
+  $id,
+);
+
+die "Conflict! " . Dumper($rows) if @$rows;
+
+$dbh->do(
+  "INSERT INTO playlists (generator, id, human, type) VALUES (?, ?, ?, ?)",
+  undef,
+  $generator,
+  $id,
+  $opt->human,
+  $opt->type,
+);
+
+print "okay\n";
