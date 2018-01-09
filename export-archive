@@ -56,8 +56,6 @@ for my $snapshot (@$snapshots) {
     $snapshot->{id},
   );
 
-  print "\@$snapshot->{snapshot_time}\n";
-
   for my $track (@$tracks) {
     $csv->say(\*STDOUT, [
       $snapshot->{snapshot_time},
