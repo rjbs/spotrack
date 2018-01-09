@@ -16,7 +16,7 @@ use Path::Tiny;
 
 my ($opt, $usage) = describe_options(
   "%c %o",
-  [ 'type=s', "what type of playlists to check", { default => 'discover' } ],
+  [ 'type|t=s', "what type of playlists to check", { default => 'discover' } ],
 );
 
 my $JSON = JSON->new;
