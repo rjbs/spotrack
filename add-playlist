@@ -23,14 +23,25 @@ my ($opt, $usage) = describe_options(
 );
 
 # https://open.spotify.com/user/spotify/playlist/37i9dQZF1E4ZfPe3oEsSxa
+# spotify:user:spotify:playlist:37i9dQZEVXboNexKnorXkq
 
-my ($generator, $id) = $opt->url =~ qr{
-  \A
-  https://open\.spotify\.com
-  /user/(\w+)
-  /playlist/(\S+)
-  \z
-}x;
+my ($generator, $id);
+
+if ($opt->url =~ /^https:/) {
+  ($generator, $id) = $opt->url =~ qr{
+    \A
+    https://open\.spotify\.com
+    /user/(\w+)
+    /playlist/(\S+)
+    \z
+  }x;
+} elsif ($opt->url =~ /^spotify:/) {
+  ($generator, $id) = $opt->url =~ qr{
+    \A
+    spotify:user:(\w+):playlist:(\w+)
+    \z
+  }x;
+}
 
 die "didn't understand URL\n" unless $generator && $id;
 
