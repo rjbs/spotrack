@@ -165,5 +165,22 @@ sub _stupid_search ($self, $args) {
   return;
 }
 
+sub _get_playlist ($self, $uri) {
+  my $id = $uri =~ s/\Aspotify:playlist://r;
+  my $res = $self->spotify_get("/playlists/$id");
+  $self->decode_json($res->decoded_content);
+}
+
+sub _get_album ($self, $uri) {
+  my $id = $uri =~ s/\Aspotify:album://r;
+  my $res = $self->spotify_get("/albums/$id");
+  $self->decode_json($res->decoded_content);
+}
+
+sub _get_track ($self, $uri) {
+  my $id = $uri =~ s/\Aspotify:track://r;
+  my $res = $self->spotify_get("/tracks/$id");
+  $self->decode_json($res->decoded_content);
+}
 
 1;

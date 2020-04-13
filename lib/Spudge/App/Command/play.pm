@@ -54,24 +54,6 @@ sub _error_from_res ($self, $res) {
   $self->app->decode_json($res->decoded_content)->{error}{message};
 }
 
-sub _get_playlist ($self, $uri) {
-  my $id = $uri =~ s/\Aspotify:playlist://r;
-  my $res = $self->app->spotify_get("/playlists/$id");
-  $self->app->decode_json($res->decoded_content);
-}
-
-sub _get_album ($self, $uri) {
-  my $id = $uri =~ s/\Aspotify:album://r;
-  my $res = $self->app->spotify_get("/albums/$id");
-  $self->app->decode_json($res->decoded_content);
-}
-
-sub _get_track ($self, $uri) {
-  my $id = $uri =~ s/\Aspotify:track://r;
-  my $res = $self->app->spotify_get("/tracks/$id");
-  $self->app->decode_json($res->decoded_content);
-}
-
 sub _and_list (@list) {
   Carp::cluck("too few elements") unless @list;
   return "" unless @list;
