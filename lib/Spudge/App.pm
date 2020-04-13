@@ -1,6 +1,8 @@
 use v5.20.0;
 use warnings;
 package Spudge::App;
+# ABSTRACT: a Spotify control tool
+
 use App::Cmd::Setup -app;
 
 use experimental qw(signatures);
@@ -73,12 +75,7 @@ sub bearer_token ($self) {
 }
 
 sub devices ($self) {
-  my $ua = LWP::UserAgent->new;
-  my $token = $self->bearer_token;
-
-  my $path = '/me/player/devices';
-  my $uri = "https://api.spotify.com/v1" . $path;
-  my $res = $ua->get($uri, 'Authorization' => "Bearer $token");
+  my $res = $self->spotify_get('/me/player/devices');
 
   unless ($res->is_success) {
     warn "failed to get myself from Spotify: " . $res->status_line . "\n";
@@ -99,6 +96,7 @@ sub find_device ($self, $str) {
 
 sub spotify_ua ($self) {
   return $self->{spotify_ua} //= do {
+    require LWP::UserAgent;
     my $ua = LWP::UserAgent->new;
     $ua->default_header('Authorization' => "Bearer " . $self->bearer_token);
     $ua;

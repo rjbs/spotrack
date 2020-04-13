@@ -1,6 +1,7 @@
 use 5.20.0;
 use warnings;
 package Spudge::App::Command::devices;
+
 use Spudge::App -command;
 
 use utf8;
