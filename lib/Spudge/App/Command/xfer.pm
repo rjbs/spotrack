@@ -7,8 +7,9 @@ use utf8;
 
 use experimental qw(postderef signatures);
 
-use LWP::UserAgent;
 use Term::ANSIColor;
+
+sub abstract { 'switch playback from one device to another' }
 
 sub opt_spec {
   return (

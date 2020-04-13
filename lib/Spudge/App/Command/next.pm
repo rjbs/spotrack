@@ -7,8 +7,9 @@ use utf8;
 
 use experimental qw(postderef signatures);
 
-use LWP::UserAgent;
 use Term::ANSIColor;
+
+sub abstract { 'skip to the next song' }
 
 sub execute ($self, $opt, $args) {
   my $res = $self->app->spotify_post('/me/player/next');

@@ -7,8 +7,9 @@ use utf8;
 
 use experimental qw(postderef signatures);
 
-use LWP::UserAgent;
 use Term::ANSIColor;
+
+sub abstract { 'find and play stuff' }
 
 sub opt_spec {
   return (

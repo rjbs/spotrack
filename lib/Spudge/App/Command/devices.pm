@@ -7,8 +7,9 @@ use utf8;
 
 use experimental qw(postderef signatures);
 
-use LWP::UserAgent;
 use Term::ANSIColor;
+
+sub abstract { 'list available playback devices' }
 
 my %TYPE_EMOJI = (
   Computer    => "\N{PERSONAL COMPUTER}",

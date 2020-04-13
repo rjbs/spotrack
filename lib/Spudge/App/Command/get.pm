@@ -7,6 +7,8 @@ use utf8;
 
 use experimental qw(postderef signatures);
 
+sub abstract { 'get an arbitrary API endpoint' }
+
 sub execute ($self, $opt, $args) {
   my $result = $self->app->spotify_get($args->[0]);
 
