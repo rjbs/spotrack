@@ -1,16 +1,12 @@
 use 5.20.0;
 use warnings;
-package Spudge::App::Command::devices;
-
-use Spudge::App -command;
+package Spudge::Util;
 
 use utf8;
 
 use experimental qw(postderef signatures);
 
 use Term::ANSIColor;
-
-sub abstract { 'list available playback devices' }
 
 my %TYPE_EMOJI = (
   Computer    => "\N{PERSONAL COMPUTER}",
@@ -19,14 +15,12 @@ my %TYPE_EMOJI = (
   unknown     => "\N{BLACK QUESTION MARK ORNAMENT}",
 );
 
-sub execute ($self, $opt, $args) {
-  my @devices = $self->app->devices;
-
-  unless (@devices) {
+sub print_devices ($self, $devices) {
+  unless (@$devices) {
     print "Sorry, you've got no devices available!  Try opening Spotify.";
   }
 
-  for my $device (sort { fc $a->{name} cmp fc $b->{name} } @devices) {
+  for my $device (sort { fc $a->{name} cmp fc $b->{name} } @$devices) {
     printf "%s %s %s %s\n",
       colored(['bold', 'green'], ($device->{is_active} ? '⮕' : ' ')),
       ($TYPE_EMOJI{ $device->{type} } // $TYPE_EMOJI{unknown}),

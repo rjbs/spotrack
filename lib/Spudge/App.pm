@@ -11,13 +11,13 @@ use Path::Tiny;
 
 sub decode_json ($self, $json) {
   require JSON::MaybeXS;
-  state $JSON = JSON::MaybeXS->new;
+  state $JSON = JSON::MaybeXS->new->utf8;
   $JSON->decode($json);
 }
 
 sub encode_json ($self, $data) {
   require JSON::MaybeXS;
-  state $JSON = JSON::MaybeXS->new;
+  state $JSON = JSON::MaybeXS->new->utf8;
   $JSON->encode($data);
 }
 
