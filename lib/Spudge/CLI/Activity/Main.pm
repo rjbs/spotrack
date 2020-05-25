@@ -32,6 +32,7 @@ use CliM8::Commando -setup => {
 
 use CliM8::Commando::Completionist -all;
 
+use Safe::Isa;
 use Spudge::Util;
 use URI;
 
@@ -88,9 +89,8 @@ command 'dev.ices' => (
 	},
 );
 
-has _last_search => (
-  is => 'rw',
-);
+has _last_search     => (is => 'rw');
+has _last_search_raw => (is => 'rw');
 
 command 'search' => (
   help    => {
@@ -104,11 +104,20 @@ command 'search' => (
     );
 
     my $res  = $self->app->appcmd->app->spotify_get($uri);
+
+    require Spudge::AO::SearchResult;
+    require Spudge::AO::Page;
+    require Spudge::AO::Album;
+    require Spudge::AO::Artist;
+    require Spudge::AO::Track;
+
     my $data = $self->app->appcmd->app->decode_json($res->decoded_content);
+    my $result = Spudge::AO::SearchResult->from_struct($data);
 
-    $self->_last_search($data);
+    $self->_last_search_raw($data);
+    $self->_last_search($result);
 
-    say JSON::MaybeXS->new->pretty->canonical->encode($data);
+    # say JSON::MaybeXS->new->pretty->canonical->encode($data);
 
     if ($data->{albums}{items}->@*) {
       say colored('ping', "[Albums]");
@@ -139,6 +148,31 @@ command 'search' => (
 	},
 );
 
+command 'json' => (
+  help => {
+    summary => 'pipe JSON of search results to pager',
+  },
+  sub ($self, $cmd, $rest) {
+    cmderr "You don't have any search results!"  unless $self->_last_search_raw;
+    my $json = JSON::MaybeXS->new->pretty->canonical->encode($self->_last_search_raw);
+    open my $pager, "|-", "less", "-M";
+    print $pager $json;
+  },
+);
+
+command 'dump' => (
+  help => {
+    summary => 'pipe dumper of search results to pager',
+  },
+  sub ($self, $cmd, $rest) {
+    cmderr "You don't have any search results!"  unless $self->_last_search;
+    require Data::Dumper::Concise;
+    my $dump = Data::Dumper::Concise::Dumper($self->_last_search);
+    open my $pager, "|-", "less", "-M";
+    print $pager $dump;
+  },
+);
+
 command 'play' => (
   help    => {
     summary => 'play something',
@@ -154,16 +188,17 @@ command 'play' => (
             : $type eq 't' ? 'tracks'
             : cmderr("I don't understand that selector.");
 
-    my $item = $self->_last_search->{$key}{items}[ $which - 1 ];
+    my @items = $self->_last_search->$key->items;
+    my $item  = $items[ $which - 1 ];
 
     cmderr "I don't think that was a valid selector." unless $item;
 
-    my $to_play = $item->{type} eq 'track'
+    my $to_play = $item->$_isa('Spudge::AO::Track')
       ? {
-          context_uri => $item->{album}{uri},
-          offset      => { position => $item->{track_number} - 1 },
+          context_uri => $item->album->uri,
+          offset      => { position => $item->track_number - 1 },
         }
-      : { context_uri => $item->{uri} };
+      : { context_uri => $item->uri };
 
     my $res = $self->app->appcmd->app->spotify_put(
       "/me/player/play",
@@ -228,7 +263,6 @@ sub _summarize ($self, $thing) {
 
   return "a weird $thing->{type}";
 }
-
 
 no Moo;
 1;
