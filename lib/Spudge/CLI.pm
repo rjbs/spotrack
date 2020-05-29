@@ -21,7 +21,7 @@ my %ACTIVITY = (
 );
 
 has appcmd => (
-	is => 'ro',
+  is => 'ro',
   requires => 1,
 );
 

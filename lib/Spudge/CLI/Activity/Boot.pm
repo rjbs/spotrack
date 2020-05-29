@@ -1,5 +1,6 @@
-package Spudge::CLI::Activity::Boot;
 use v5.20.0;
+package Spudge::CLI::Activity::Boot;
+
 use Moo;
 with 'CliM8::Activity';
 

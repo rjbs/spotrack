@@ -1,7 +1,7 @@
-package Spudge::CLI::Activity::Main;
 use v5.20.0;
-use Moo;
+package Spudge::CLI::Activity::Main;
 
+use Moo;
 with 'CliM8::Activity',
      'CliM8::Role::Readline';
 
@@ -84,9 +84,9 @@ command 'dev.ices' => (
     summary => 'list your available playback devices',
   },
   sub ($self, $cmd, $rest) {
-		my @devices = $self->app->appcmd->app->devices;
+    my @devices = $self->app->appcmd->app->devices;
     Spudge::Util->print_devices(\@devices);
-	},
+  },
 );
 
 has _last_search     => (is => 'rw');
@@ -145,7 +145,7 @@ command 'search' => (
         printf "% 3s. %s\n", ('t' . ++$i), $track->{name};
       }
     }
-	},
+  },
 );
 
 command 'json' => (
