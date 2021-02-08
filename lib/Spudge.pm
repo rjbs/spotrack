@@ -19,4 +19,26 @@ sub root_dir {
   return $root;
 }
 
+sub get_access_token {
+  my $root = $_[0]->root_dir;
+
+  state $JSON = JSON->new;
+
+  my $config = $JSON->decode( $root->child("oauth.json")->slurp );
+
+  my $id      = $config->{id};
+  my $secret  = $config->{secret};
+  my $refresh = $config->{refresh};
+
+  my $client = OAuth::Lite2::Client::WebServer->new(
+    id               => $id,
+    secret           => $secret,
+    authorize_uri    => q{https://accounts.spotify.com/authorize},
+    access_token_uri => q{https://accounts.spotify.com/api/token},
+  );
+
+  my $token_obj = $client->refresh_access_token(refresh_token => $refresh);
+  my $token = $token_obj->access_token;
+}
+
 1;
