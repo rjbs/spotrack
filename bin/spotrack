@@ -2,6 +2,8 @@
 use 5.12.0;
 use warnings;
 
+use experimental 'postderef';
+
 use utf8;
 binmode *STDOUT, ':encoding(utf-8)';
 
