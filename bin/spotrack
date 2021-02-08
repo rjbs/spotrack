@@ -138,17 +138,25 @@ sub get_tracks {
 sub compare_playlists {
   my $type = $opt->type;
 
+  my $humans = $dbh->selectall_hashref('SELECT * FROM humans', 'id');
+
   my $playlists = $dbh->selectall_arrayref(
-    "SELECT id, generator, type, human FROM playlists WHERE type = ?",
+    "SELECT id, generator, type, human_id FROM playlists WHERE type = ?",
     { Slice => {} },
     $type,
   );
 
   die sprintf "no playlists of type %s\n", $type unless @$playlists;
 
-  my %tracks_for = map {;
-    "$_->{human}/$_->{type}" => get_tracks($_->{generator}, $_->{id})
-  } @$playlists;
+  my %tracks_for;
+  for my $playlist (@$playlists) {
+    # Hello, Human-17, the classifier/shredder is ready for you.
+    my $who = $humans->{ $playlist->{human_id} }
+            ? $humans->{ $playlist->{human_id} }->{name}
+            : "human-$playlist->{human_id}";
+
+    $tracks_for{"$who/$playlist->{type}"} = get_tracks($playlist->{generator}, $playlist->{id});
+  }
 
   my %on;
   my %track_label;
@@ -170,26 +178,3 @@ sub compare_playlists {
 }
 
 compare_playlists($opt->type);
-
-__END__
-CREATE TABLE playlists (
-  id text PRIMARY KEY,
-  generator text NOT NULL,
-  type text NOT NULL,
-  human text NOT NULL
-);
-
-CREATE TABLE playlist_snapshots (
-  id integer PRIMARY KEY,
-  playlist_snapshot_id text NOT NULL,
-  playlist_id text NOT NULL,
-  snapshot_time text NOT NULL
-);
-
-CREATE TABLE playlist_snapshot_tracks (
-  snapshot_id integer NOT NULL,
-  position integer NOT NULL,
-  track_id text NOT NULL,
-  artist text NOT NULL,
-  title text NOT NULL
-);
