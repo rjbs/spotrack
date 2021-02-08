@@ -1,0 +1,136 @@
+#!/usr/bin/env perl
+use 5.12.0;
+use warnings;
+
+use experimental 'postderef';
+
+use utf8;
+# binmode *STDOUT, ':encoding(utf-8)';
+
+use DBI;
+use DateTime;
+use Getopt::Long::Descriptive;
+use JSON 2 ();
+use LWP::UserAgent;
+use OAuth::Lite2;
+use OAuth::Lite2::Client::WebServer;
+use Spudge;
+
+my ($opt, $usage) = describe_options(
+  "%c %o",
+  [ 'for=s', "whose top tracks are you getting? defaults to \$USER",
+    { default => $ENV{USER} } ],
+);
+
+my $JSON = JSON->new;
+
+my $ROOT  = Spudge->root_dir;
+my $token = Spudge->get_access_token;
+
+my $db_path = $ROOT->child("spotrack.sqlite");
+
+my $dbh = DBI->connect(
+  "dbi:SQLite:dbname=$db_path",
+  undef, undef,
+  { sqlite_unicode => 1, RaiseError => 1 }
+) or die "can't open db: $DBI::errstr\n";
+
+my ($human_id) = $dbh->selectrow_array(
+  q{SELECT id FROM humans WHERE name = ?},
+  undef,
+  $opt->for,
+);
+
+die "don't know user " . $opt->for . "\n" unless $human_id;
+
+my $ua = LWP::UserAgent->new(keep_alive => 1);
+
+my $now    = DateTime->now(time_zone => 'UTC');
+my $yyyymm = $now->format_cldr('YYYYMM');
+my $generated_at = $now->iso8601 . 'Z';
+
+RANGE: for my $time_range (qw( long_term medium_term short_term )) {
+  die "can't start transaction: " . $dbh->errstr . "\n"
+    unless $dbh->begin_work;
+
+  {
+    my ($row) = $dbh->selectrow_hashref(
+      q{
+        SELECT *
+        FROM top_tracks_snapshots
+        WHERE human_id = ?
+          AND time_range = ?
+          AND yyyymm = ?
+      },
+      undef,
+      $human_id,
+      $time_range,
+      $yyyymm,
+    );
+
+    if ($row) {
+      warn "Already have top tracks for $yyyymm/$time_range\n";
+      $dbh->rollback;
+      next RANGE;
+    }
+  }
+
+  my $uri = "https://api.spotify.com/v1/me/top/tracks?limit=40&time_range=$time_range";
+  my $res = $ua->get($uri, 'Authorization' => "Bearer $token");
+
+  unless ($res->is_success) {
+    warn "failed to get myself from Spotify: " . $res->status_line . "\n";
+    $dbh->rollback;
+    next RANGE;
+  }
+
+  my $playlist = $JSON->decode($res->decoded_content);
+
+  unless ($playlist->{items}->@*) {
+    warn "no new items to record\n";
+    $dbh->rollback;
+    next RANGE;
+  }
+
+  $dbh->do(
+    q{
+      INSERT INTO top_tracks_snapshots
+      (human_id, yyyymm, time_range, generated_at)
+      VALUES (?, ?, ?, ?)
+    },
+    undef,
+    $human_id,
+    $yyyymm,
+    $time_range,
+    $generated_at,
+  );
+
+  my $snapshot_id = $dbh->sqlite_last_insert_rowid;
+
+  my $sth = $dbh->prepare(
+    q{
+      INSERT INTO top_tracks_snapshot_tracks
+      (snapshot_id, position, track_id, artist, title)
+      VALUES (?, ?, ?, ?, ?)
+    },
+  );
+
+  for my $i (keys $playlist->{items}->@*) {
+    my $track = $playlist->{items}->[$i];
+    my $title = $track->{name};
+    my $by    = join q{; }, map {; $_->{name} } $track->{artists}->@*;
+    say "$title by $by";
+
+    $sth->execute(
+      $snapshot_id,
+      $i+1,
+      $track->{id},
+      $by,
+      $title,
+    );
+  }
+
+  die "can't commit transaction: " . $dbh->errstr . "\n"
+    unless $dbh->commit;
+}
+
