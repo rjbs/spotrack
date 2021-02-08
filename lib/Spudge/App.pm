@@ -8,6 +8,7 @@ use App::Cmd::Setup -app;
 use experimental qw(signatures);
 
 use Path::Tiny;
+use Spudge;
 
 sub decode_json ($self, $json) {
   require JSON::MaybeXS;
