@@ -2,6 +2,7 @@ package Spudge;
 use v5.20.0;
 use warnings;
 
+use File::HomeDir;
 use Path::Tiny ();
 
 sub root_dir {
