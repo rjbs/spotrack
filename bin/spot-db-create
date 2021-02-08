@@ -87,6 +87,26 @@ my @statements = (
       UNIQUE(human_id)
     );
   },
+  q{
+    CREATE TABLE top_tracks_snapshots (
+      id integer PRIMARY KEY,
+      human_id integer NOT NULL REFERENCES humans (id),
+      yyyymm text NOT NULL,
+      time_range text NOT NULL,
+      generated_at text NOT NULL,
+      UNIQUE(human_id, yyyymm, time_range)
+    );
+  },
+  q{
+    CREATE TABLE top_tracks_snapshot_tracks (
+      snapshot_id integer NOT NULL REFERENCES top_tracks_snapshots (id),
+      position integer NOT NULL,
+      track_id text NOT NULL,
+      artist text NOT NULL,
+      title text NOT NULL,
+      UNIQUE(snapshot_id, position)
+    );
+  },
 );
 
 $dbh->do($_) for @statements;
