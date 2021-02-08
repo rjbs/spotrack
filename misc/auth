@@ -1,0 +1,65 @@
+#!/usr/bin/env perl
+use 5.12.0;
+use warnings;
+
+use utf8;
+binmode *STDOUT, ':encoding(utf-8)';
+
+use DBI;
+use File::HomeDir ();
+use Getopt::Long::Descriptive;
+use JSON::MaybeXS ();
+use LWP::UserAgent;
+use OAuth::Lite2;
+use OAuth::Lite2::Client::WebServer;
+use Path::Tiny;
+
+my $JSON = JSON::MaybeXS->new;
+
+my $ROOT = path( File::HomeDir->my_home )->child(".spotrack");
+die "no config root $ROOT\n" unless -d $ROOT;
+
+my $db_path = $ROOT->child("spotrack.sqlite");
+die "no $db_path\n" unless -e $db_path;
+
+my $dbh = DBI->connect(
+  "dbi:SQLite:dbname=$db_path",
+  undef, undef,
+  { sqlite_unicode => 1 }
+) or die "can't open db: $DBI::errstr\n";
+
+my $config = $JSON->decode( $ROOT->child("oauth.json")->slurp );
+
+my $id      = $config->{id};
+my $secret  = $config->{secret};
+my $refresh = $config->{refresh};
+
+my $client = OAuth::Lite2::Client::WebServer->new(
+  id               => $id,
+  secret           => $secret,
+  authorize_uri    => q{https://accounts.spotify.com/authorize},
+  access_token_uri => q{https://accounts.spotify.com/api/token},
+);
+
+my $token_obj = $client->refresh_access_token(refresh_token => $refresh);
+my $token = $token_obj->access_token;
+
+my $ua = LWP::UserAgent->new;
+
+sub get {
+  my $path = shift;
+  my $uri = "https://api.spotify.com/v1" . $path;
+  my $res = $ua->get($uri, 'Authorization' => "Bearer $token");
+
+  unless ($res->is_success) {
+    warn "failed to get myself from Spotify: " . $res->status_line . "\n";
+  }
+
+  return $JSON->decode($res->decoded_content);
+}
+
+sub pp {
+  JSON::MaybeXS->new->pretty->canonical->encode($_[0]);
+}
+
+say pp( get($ARGV[0]) );
