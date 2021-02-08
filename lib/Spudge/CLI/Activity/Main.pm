@@ -112,37 +112,37 @@ command 'search' => (
     require Spudge::AO::Track;
 
     my $data = $self->app->appcmd->app->decode_json($res->decoded_content);
-    my $result = Spudge::AO::SearchResult->from_struct($data);
+    my $result = Spudge::AO::SearchResult->from_hashref({
+      $data->%{ qw(albums artists tracks) },
+    });
 
     $self->_last_search_raw($data);
     $self->_last_search($result);
 
-    # say JSON::MaybeXS->new->pretty->canonical->encode($data);
-
-    if ($data->{albums}{items}->@*) {
+    if (my @albums = $result->albums->items) {
       say colored('ping', "[Albums]");
       my $i = 0;
-      for my $album ($data->{albums}{items}->@*) {
-        printf "% 3s. %s\n", ('r' . ++$i), $album->{name};
+      for my $album (@albums) {
+        printf "% 3s. %s\n", ('r' . ++$i), $album->name;
       }
       say q{};
     }
 
-    if ($data->{artists}{items}->@*) {
+    if (my @artists = $result->artists->items) {
       say colored('ping', "[Artists]");
       my $i = 0;
-      for my $artist ($data->{artists}{items}->@*) {
-        printf "% 3s. %s\n", ('a' . ++$i), $artist->{name};
+      for my $artist (@artists) {
+        printf "% 3s. %s\n", ('a' . ++$i), $artist->name;
       }
 
       say q{};
     }
 
-    if ($data->{tracks}{items}->@*) {
+    if (my @tracks = $result->tracks->items) {
       say colored('ping', "[Tracks]");
       my $i = 0;
-      for my $track ($data->{tracks}{items}->@*) {
-        printf "% 3s. %s\n", ('t' . ++$i), $track->{name};
+      for my $track (@tracks) {
+        printf "% 3s. %s\n", ('t' . ++$i), $track->name;
       }
     }
   },
@@ -210,6 +210,48 @@ command 'play' => (
 
     say "Now playing " . $self->_summarize($item) . ".";
   }
+);
+
+command 'recent' => (
+  help => {
+    summary => 'show your recently played tracks',
+  },
+  sub ($self, $cmd, $rest) {
+    my $res = $self->app->appcmd->app->spotify_get(
+      '/me/player/recently-played',
+    );
+
+    my $data = $self->app->appcmd->app->decode_json($res->decoded_content);
+
+    if ($data->{items}->@*) {
+      say colored('ping', "[Tracks]");
+      my $i = 0;
+      for my $track (map {; $_->{track} } $data->{items}->@*) {
+        printf "% 3s. %s\n", ('t' . ++$i), $track->{name};
+      }
+    }
+  },
+);
+
+command 'top' => (
+  help => {
+    summary => 'show your top tracks',
+  },
+  sub ($self, $cmd, $rest) {
+    my $res = $self->app->appcmd->app->spotify_get(
+      '/me/top/tracks?time_range=short_term',
+    );
+
+    my $data = $self->app->appcmd->app->decode_json($res->decoded_content);
+
+    if ($data->{items}->@*) {
+      say colored('ping', "[Tracks]");
+      my $i = 0;
+      for my $track ($data->{items}->@*) {
+        printf "% 3s. %s\n", ('t' . ++$i), $track->{name};
+      }
+    }
+  },
 );
 
 sub _and_list (@list) {

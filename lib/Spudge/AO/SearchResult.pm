@@ -8,30 +8,31 @@ use experimental qw(postderef signatures);
 
 has albums => (
   is => 'ro',
-  required  => 1,
+  predicate => 'has_albums',
 );
 
 has artists => (
   is => 'ro',
-  required  => 1,
+  predicate => 'has_artists',
 );
 
 has playlists => (
   is => 'ro',
-  required  => 1,
+  predicate => 'has_playlists',
 );
 
 has tracks => (
   is => 'ro',
-  required  => 1,
+  predicate => 'has_tracks',
 );
 
-sub from_struct ($class, $struct) {
+sub from_hashref ($class, $hashref) {
   $class->new({
-    albums    => Spudge::AO::Page->from_struct($struct->{albums}),
-    artists   => Spudge::AO::Page->from_struct($struct->{artists}),
-    playlists => Spudge::AO::Page->from_struct($struct->{playlists}),
-    tracks    => Spudge::AO::Page->from_struct($struct->{tracks}),
+    map {;
+      (($hashref->{$_} && $hashref->{$_}{items}->@* > 0)
+        ? ($_ => Spudge::AO::Page->from_struct($hashref->{$_}))
+        : ())
+    } qw( albums artists playlists tracks )
   });
 }
 
