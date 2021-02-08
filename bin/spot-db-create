@@ -44,26 +44,28 @@ my @statements = (
   q{
     CREATE TABLE playlists (
       id text PRIMARY KEY,
-      generator text NOT NULL,
+      human_id integer NOT NULL REFERENCES humans (id),
       type text NOT NULL,
-      human text NOT NULL
+      generator text NOT NULL,
+      UNIQUE(human_id, type)
     );
   },
   q{
     CREATE TABLE playlist_snapshots (
       id integer PRIMARY KEY,
-      playlist_snapshot_id text NOT NULL,
+      playlist_snapshot_id text NOT NULL UNIQUE,
       playlist_id text NOT NULL,
       snapshot_time text NOT NULL
     );
   },
   q{
     CREATE TABLE playlist_snapshot_tracks (
-      snapshot_id integer NOT NULL,
+      snapshot_id integer NOT NULL REFERENCES playlist_snapshots (id),
       position integer NOT NULL,
       track_id text NOT NULL,
       artist text NOT NULL,
-      title text NOT NULL
+      title text NOT NULL,
+      UNIQUE(snapshot_id, position)
     );
   },
 );
