@@ -1,0 +1,71 @@
+#!/usr/bin/env perl
+use 5.12.0;
+use warnings;
+
+use utf8;
+binmode *STDOUT, ':encoding(utf-8)';
+
+use DBI;
+use File::HomeDir ();
+use Getopt::Long::Descriptive;
+use JSON 2 ();
+use LWP::UserAgent;
+use OAuth::Lite2;
+use OAuth::Lite2::Client::WebServer;
+use Path::Tiny;
+use Spudge;
+
+my $ROOT = Spudge->root_dir;
+
+my $db_path = $ROOT->child("spotrack.sqlite");
+die "$db_path already exists\n" if -e $db_path;
+
+my $dbh = DBI->connect(
+  "dbi:SQLite:dbname=$db_path",
+  undef, undef,
+  { sqlite_unicode => 1 }
+) or die "can't open db: $DBI::errstr\n";
+
+my @statements = (
+  q{
+    CREATE TABLE humans (
+      id integer PRIMARY KEY,
+      name text NOT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT 1
+    );
+  },
+  q{
+    CREATE TABLE human_tags (
+      human_id integer PRIMARY KEY,
+      tag text NOT NULL,
+      UNIQUE(human_id, tag)
+    );
+  },
+  q{
+    CREATE TABLE playlists (
+      id text PRIMARY KEY,
+      generator text NOT NULL,
+      type text NOT NULL,
+      human text NOT NULL
+    );
+  },
+  q{
+    CREATE TABLE playlist_snapshots (
+      id integer PRIMARY KEY,
+      playlist_snapshot_id text NOT NULL,
+      playlist_id text NOT NULL,
+      snapshot_time text NOT NULL
+    );
+  },
+  q{
+    CREATE TABLE playlist_snapshot_tracks (
+      snapshot_id integer NOT NULL,
+      position integer NOT NULL,
+      track_id text NOT NULL,
+      artist text NOT NULL,
+      title text NOT NULL
+    );
+  },
+);
+
+$dbh->do($_) for @statements;
