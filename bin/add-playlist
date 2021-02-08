@@ -33,7 +33,7 @@ if ($opt->url =~ /^https:/) {
     \A
     https://open\.spotify\.com
     /user/(\w+)
-    /playlist/(\S+)
+    /playlist/([^?]+)
     \z
   }x;
 } elsif ($opt->url =~ /^spotify:/) {
