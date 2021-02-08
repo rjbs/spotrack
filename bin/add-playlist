@@ -14,6 +14,7 @@ use LWP::UserAgent;
 use OAuth::Lite2;
 use OAuth::Lite2::Client::WebServer;
 use Path::Tiny;
+use Spudge;
 
 my ($opt, $usage) = describe_options(
   "%c %o",
@@ -45,8 +46,7 @@ if ($opt->url =~ /^https:/) {
 
 die "didn't understand URL\n" unless $generator && $id;
 
-my $ROOT = path( File::HomeDir->my_home )->child(".spotrack");
-die "no config root $ROOT\n" unless -d $ROOT;
+my $ROOT = Spudge->root_dir;
 
 my $db_path = $ROOT->child("spotrack.sqlite");
 die "no $db_path\n" unless -e $db_path;

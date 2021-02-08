@@ -28,11 +28,7 @@ sub pretty_json ($self, $data) {
 }
 
 sub storage_dir ($self) {
-  return $self->{storage_dir} //= do {
-    my $root = path($ENV{HOME})->child(".spotrack");
-    die "no config root $root\n" unless -d $root;
-    $root;
-  };
+  return $self->{storage_dir} //= Spudge->root_dir;
 }
 
 sub sqlite_dbh ($self) {

@@ -9,10 +9,10 @@ use DBI;
 use File::HomeDir;
 use Getopt::Long::Descriptive;
 use Path::Tiny;
+use Spudge;
 use Text::CSV_XS;
 
-my $ROOT = path( File::HomeDir->my_home )->child(".spotrack");
-die "no config root $ROOT\n" unless -d $ROOT;
+my $ROOT = Spudge->root_dir;
 
 my $db_path = $ROOT->child("spotrack.sqlite");
 

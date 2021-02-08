@@ -13,11 +13,11 @@ use LWP::UserAgent;
 use OAuth::Lite2;
 use OAuth::Lite2::Client::WebServer;
 use Path::Tiny;
+use Spudge;
 
 my $JSON = JSON::MaybeXS->new;
 
-my $ROOT = path( File::HomeDir->my_home )->child(".spotrack");
-die "no config root $ROOT\n" unless -d $ROOT;
+my $ROOT = Spudge->root_dir;
 
 my $db_path = $ROOT->child("spotrack.sqlite");
 die "no $db_path\n" unless -e $db_path;
