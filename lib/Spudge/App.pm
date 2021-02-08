@@ -33,18 +33,7 @@ sub storage_dir ($self) {
 }
 
 sub sqlite_dbh ($self) {
-  return $self->{sqlite_dbh} //= do {
-    require DBI;
-
-    my $db_path = $self->storage_dir->child("spotrack.sqlite");
-    die "no $db_path\n" unless -e $db_path;
-
-    my $dbh = DBI->connect(
-      "dbi:SQLite:dbname=$db_path",
-      undef, undef,
-      { sqlite_unicode => 1 }
-    ) or die "can't open db: $DBI::errstr\n";
-  };
+  Spudge->dbi_connector->dbh; # XXX replace me -- rjbs, 2021-02-08
 }
 
 sub bearer_token ($self) {

@@ -2,6 +2,7 @@ package Spudge;
 use v5.20.0;
 use warnings;
 
+use DBIx::Connector;
 use File::HomeDir;
 use Path::Tiny ();
 
@@ -40,6 +41,54 @@ sub get_access_token {
 
   my $token_obj = $client->refresh_access_token(refresh_token => $refresh);
   my $token = $token_obj->access_token;
+}
+
+sub db_path {
+  my ($class) = @_;
+
+  my $db_path = $class->root_dir->child("spotrack.sqlite");
+}
+
+sub _mk_connector {
+  my ($class) = @_;
+
+  my $db_path = $class->root_dir->child("spotrack.sqlite");
+
+  return DBIx::Connector->new(
+    "dbi:SQLite:dbname=$db_path",
+    undef,
+    undef,
+    {
+      sqlite_unicode => 1,
+      RaiseError => 1,
+    }
+  );
+}
+
+sub create_db_and_return_handle {
+  my ($class) = @_;
+
+  my $db_path = $class->root_dir->child("spotrack.sqlite");
+
+  die "database already exists: $db_path\n" if -e $db_path;
+
+  $class->_mk_connector->dbh;
+}
+
+sub dbi_connector {
+  my ($class) = @_;
+
+  state $connector;
+  return $connector if $connector;
+
+  my $db_path = $class->root_dir->child("spotrack.sqlite");
+  die "no $db_path\n" unless -e $db_path;
+
+  $connector = $class->_mk_connector;
+}
+
+sub txn_do {
+  $_[0]->dbi_connector->txn(ping => $_[1]);
 }
 
 1;
