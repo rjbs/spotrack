@@ -68,6 +68,25 @@ my @statements = (
       UNIQUE(snapshot_id, position)
     );
   },
+  q{
+    CREATE TABLE complete_play_history (
+      history_id PRIMARY KEY,
+      human_id integer NOT NULL REFERENCES humans (id),
+      played_at text NOT NULL,
+      track_id text NOT NULL,
+      artist text NOT NULL,
+      album text NOT NULL,
+      title text NOT NULL,
+      context_uri text NOT NULL
+    );
+  },
+  q{
+    CREATE TABLE history_positions (
+      human_id integer NOT NULL REFERENCES humans (id),
+      next_cursor_start_ms integer NOT NULL,
+      UNIQUE(human_id)
+    );
+  },
 );
 
 $dbh->do($_) for @statements;
