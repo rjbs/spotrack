@@ -5,15 +5,10 @@ use warnings;
 use utf8;
 binmode *STDOUT, ':encoding(utf-8)';
 
-use DBI;
-use File::HomeDir ();
-use Getopt::Long::Descriptive;
-use JSON 2 ();
-use LWP::UserAgent;
-use Path::Tiny;
 use Spudge;
 
-my $dbh = Spudge->create_db_and_return_handle;
+my $Spudge = Spudge->new;
+my $dbh = $Spudge->create_db_and_return_handle;
 
 my @statements = (
   q{
@@ -96,6 +91,14 @@ my @statements = (
       run_count integer NOT NULL,
       previous_position integer,
       UNIQUE(snapshot_id, position)
+    );
+  },
+  q{
+    CREATE TABLE tracks (
+      track_id text PRIMARY KEY,
+      title text NOT NULL,
+      artist text NOT NULL,
+      album text NOT NULL
     );
   },
 );

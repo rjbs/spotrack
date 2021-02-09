@@ -7,12 +7,9 @@ use experimental 'postderef';
 use utf8;
 # binmode *STDOUT, ':encoding(utf-8)';
 
-use DBI;
-use File::HomeDir ();
 use Getopt::Long::Descriptive;
-use JSON 2 ();
+use JSON::MaybeXS ();
 use LWP::UserAgent;
-use Path::Tiny;
 use Spudge;
 
 my ($opt, $usage) = describe_options(
@@ -20,11 +17,11 @@ my ($opt, $usage) = describe_options(
   [ 'type|t=s', "what type of playlists to check", { default => 'discover' } ],
 );
 
-my $JSON = JSON->new;
+my $JSON = JSON::MaybeXS->new;
 
-my $token = Spudge->get_access_token;
-
-my $dbh = Spudge->dbi_connector->dbh;
+my $Spudge  = Spudge->new;
+my $token   = $Spudge->access_token;
+my $dbh     = $Spudge->dbi_connector->dbh;
 
 my $ua = LWP::UserAgent->new(keep_alive => 1);
 

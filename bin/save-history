@@ -9,7 +9,7 @@ use utf8;
 
 use DBI;
 use Getopt::Long::Descriptive;
-use JSON 2 ();
+use JSON::MaybeXS ();
 use LWP::UserAgent;
 use Spudge;
 
@@ -19,14 +19,12 @@ my ($opt, $usage) = describe_options(
     { default => $ENV{USER} } ],
 );
 
-my $JSON = JSON->new;
+my $JSON = JSON::MaybeXS->new;
 
-my $ROOT  = Spudge->root_dir;
-my $token = Spudge->get_access_token;
+my $Spudge  = Spudge->new;
+my $token   = $Spudge->access_token;
 
-my $db_path = $ROOT->child("spotrack.sqlite");
-
-my $dbh = Spudge->dbi_connector->dbh;
+my $dbh = $Spudge->dbi_connector->dbh;
 
 my ($human_id) = $dbh->selectrow_array(
   q{SELECT id FROM humans WHERE name = ?},

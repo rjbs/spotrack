@@ -25,10 +25,10 @@ my ($opt, $usage) = describe_options(
                 { default => 'medium' } ],
 );
 
-my $ROOT  = Spudge->root_dir;
-my $token = Spudge->get_access_token;
+my $Spudge  = Spudge->new;
+my $token   = $Spudge->access_token;
 
-my ($human_id) = Spudge->dbi_connector->dbh->selectrow_array(
+my ($human_id) = $Spudge->dbi_connector->dbh->selectrow_array(
   q{SELECT id FROM humans WHERE name = ?},
   undef,
   $opt->for,
@@ -39,7 +39,7 @@ die "don't know user " . $opt->for . "\n" unless $human_id;
 my $ua = LWP::UserAgent->new(keep_alive => 1);
 
 my $snapshot_row;
-my $dbh = Spudge->dbi_connector->dbh;
+my $dbh = $Spudge->dbi_connector->dbh;
 
 if ($opt->when) {
   $snapshot_row = $dbh->selectrow_hashref(

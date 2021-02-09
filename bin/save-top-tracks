@@ -23,10 +23,10 @@ my ($opt, $usage) = describe_options(
 
 my $JSON = JSON->new;
 
-my $ROOT  = Spudge->root_dir;
-my $token = Spudge->get_access_token;
+my $Spudge = Spudge->new;
+my $token  = $Spudge->access_token;
 
-my ($human_id) = Spudge->dbi_connector->dbh->selectrow_array(
+my ($human_id) = $Spudge->dbi_connector->dbh->selectrow_array(
   q{SELECT id FROM humans WHERE name = ?},
   undef,
   $opt->for,
@@ -57,7 +57,7 @@ sub get_snapshot ($dbh, $time_range) {
 
 RANGE: for my $time_range (qw( long_term medium_term short_term )) {
   try {
-    Spudge->txn(sub {
+    $Spudge->txn(sub {
       my $dbh = $_;
 
       if (get_snapshot($dbh, $time_range)) {
