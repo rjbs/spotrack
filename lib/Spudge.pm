@@ -4,6 +4,9 @@ use warnings;
 
 use DBIx::Connector;
 use File::HomeDir;
+use JSON::MaybeXS ();
+use OAuth::Lite2;
+use OAuth::Lite2::Client::WebServer;
 use Path::Tiny ();
 
 sub root_dir {
@@ -24,7 +27,7 @@ sub root_dir {
 sub get_access_token {
   my $root = $_[0]->root_dir;
 
-  state $JSON = JSON->new;
+  state $JSON = JSON::MaybeXS->new;
 
   my $config = $JSON->decode( $root->child("oauth.json")->slurp );
 
@@ -87,7 +90,7 @@ sub dbi_connector {
   $connector = $class->_mk_connector;
 }
 
-sub txn_do {
+sub txn {
   $_[0]->dbi_connector->txn(ping => $_[1]);
 }
 

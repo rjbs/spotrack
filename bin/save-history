@@ -11,8 +11,6 @@ use DBI;
 use Getopt::Long::Descriptive;
 use JSON 2 ();
 use LWP::UserAgent;
-use OAuth::Lite2;
-use OAuth::Lite2::Client::WebServer;
 use Spudge;
 
 my ($opt, $usage) = describe_options(

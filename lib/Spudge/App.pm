@@ -37,27 +37,7 @@ sub sqlite_dbh ($self) {
 }
 
 sub bearer_token ($self) {
-  return $self->{bearer_token} //= do {
-    require OAuth::Lite2::Client::WebServer;
-
-    my $config = $self->decode_json(
-      $self->storage_dir->child("oauth.json")->slurp
-    );
-
-    my $id      = $config->{id};
-    my $secret  = $config->{secret};
-    my $refresh = $config->{refresh};
-
-    my $client = OAuth::Lite2::Client::WebServer->new(
-      id               => $id,
-      secret           => $secret,
-      authorize_uri    => q{https://accounts.spotify.com/authorize},
-      access_token_uri => q{https://accounts.spotify.com/api/token},
-    );
-
-    my $token_obj = $client->refresh_access_token(refresh_token => $refresh);
-    my $token = $token_obj->access_token;
-  }
+  return $self->{bearer_token} //= Spudge->get_access_token;
 }
 
 sub devices ($self) {
