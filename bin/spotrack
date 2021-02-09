@@ -22,17 +22,9 @@ my ($opt, $usage) = describe_options(
 
 my $JSON = JSON->new;
 
-my $ROOT = Spudge->root_dir;
 my $token = Spudge->get_access_token;
 
-my $db_path = $ROOT->child("spotrack.sqlite");
-die "no $db_path\n" unless -e $db_path;
-
-my $dbh = DBI->connect(
-  "dbi:SQLite:dbname=$db_path",
-  undef, undef,
-  { sqlite_unicode => 1 }
-) or die "can't open db: $DBI::errstr\n";
+my $dbh = Spudge->dbi_connector->dbh;
 
 my $ua = LWP::UserAgent->new(keep_alive => 1);
 

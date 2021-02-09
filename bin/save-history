@@ -26,11 +26,7 @@ my $token = Spudge->get_access_token;
 
 my $db_path = $ROOT->child("spotrack.sqlite");
 
-my $dbh = DBI->connect(
-  "dbi:SQLite:dbname=$db_path",
-  undef, undef,
-  { sqlite_unicode => 1, RaiseError => 1 }
-) or die "can't open db: $DBI::errstr\n";
+my $dbh = Spudge->dbi_connector->dbh;
 
 my ($human_id) = $dbh->selectrow_array(
   q{SELECT id FROM humans WHERE name = ?},

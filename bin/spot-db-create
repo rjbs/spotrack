@@ -13,16 +13,7 @@ use LWP::UserAgent;
 use Path::Tiny;
 use Spudge;
 
-my $ROOT = Spudge->root_dir;
-
-my $db_path = $ROOT->child("spotrack.sqlite");
-die "$db_path already exists\n" if -e $db_path;
-
-my $dbh = DBI->connect(
-  "dbi:SQLite:dbname=$db_path",
-  undef, undef,
-  { sqlite_unicode => 1 }
-) or die "can't open db: $DBI::errstr\n";
+my $dbh = Spudge->create_db_and_return_handle;
 
 my @statements = (
   q{
