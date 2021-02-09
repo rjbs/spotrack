@@ -102,6 +102,8 @@ my @statements = (
       track_id text NOT NULL,
       artist text NOT NULL,
       title text NOT NULL,
+      run_count integer NOT NULL,
+      previous_position integer,
       UNIQUE(snapshot_id, position)
     );
   },

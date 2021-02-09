@@ -65,6 +65,27 @@ RANGE: for my $time_range (qw( long_term medium_term short_term )) {
         return;
       }
 
+      my $prev_snapshot_id = $dbh->selectrow_hashref(
+        q{SELECT *
+        FROM top_tracks_snapshots
+        WHERE human_id = ?
+        ORDER BY yyyymm DESC
+        LIMIT 1},
+        undef,
+        $human_id,
+      );
+
+      my %last_track_data;
+      if ($prev_snapshot_id) {
+        my $last_snapshot_tracks = $dbh->selectrow_hashref(
+          q{SELECT * FROM top_tracks_snapshot_tracks WHERE snapshot_id = ?},
+          undef,
+          $prev_snapshot_id,
+        );
+
+        %last_track_data = %{ $last_snapshot_tracks // {} };
+      }
+
       my $uri = "https://api.spotify.com/v1/me/top/tracks?limit=40&time_range=$time_range";
       my $res = $ua->get($uri, 'Authorization' => "Bearer $token");
 
@@ -98,8 +119,8 @@ RANGE: for my $time_range (qw( long_term medium_term short_term )) {
       my $sth = $dbh->prepare(
         q{
           INSERT INTO top_tracks_snapshot_tracks
-          (snapshot_id, position, track_id, artist, title)
-          VALUES (?, ?, ?, ?, ?)
+          (snapshot_id, position, track_id, artist, title, run_count, previous_position)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
         },
       );
 
@@ -109,12 +130,16 @@ RANGE: for my $time_range (qw( long_term medium_term short_term )) {
         my $by    = join q{; }, map {; $_->{name} } $track->{artists}->@*;
         say "$title by $by";
 
+        my $last_time = $last_track_data{ $track->{id} } // { run_count => 0 };
+
         $sth->execute(
           $snapshot_id,
           $i+1,
           $track->{id},
           $by,
           $title,
+          $last_time->{run_count} + 1,
+          $last_time->{position},
         );
       }
     });
