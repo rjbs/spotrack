@@ -7,6 +7,7 @@ use experimental 'postderef';
 use utf8;
 # binmode *STDOUT, ':encoding(utf-8)';
 
+use Digest::MD5 qw(md5_hex);
 use Getopt::Long::Descriptive;
 use JSON::MaybeXS ();
 use LWP::UserAgent;
@@ -31,14 +32,19 @@ sub sync_playlist {
 
   my $ident = "$playlist->{name}/$playlist->{type} ($playlist->{id})";
 
-  my ($stored_snapshot) = $dbh->selectall_hashref(
-    "SELECT playlist_snapshot_id FROM playlist_snapshots WHERE playlist_id = ?",
-    'playlist_snapshot_id',
+  my ($stored_snapshots) = $dbh->selectall_arrayref(
+    "SELECT * FROM playlist_snapshots WHERE playlist_id = ?",
     { Slice => {} },
     $playlist->{id},
   );
 
-  if (keys %$stored_snapshot && not $playlist->{is_mutable}) {
+  $Logger->log_debug([
+    "there are %s snapshots for %s",
+    (0 + @$stored_snapshots),
+    $ident,
+  ]);
+
+  if (@$stored_snapshots && not $playlist->{is_mutable}) {
     # Immutable playlist already has a snapshot.  Let's skip it.
     $Logger->log_debug([ "skipping saved and immutable playlist" ]);
     return;
@@ -51,7 +57,11 @@ sub sync_playlist {
   my $res = $ua->get($uri, 'Authorization' => "Bearer $token");
 
   unless ($res->is_success) {
-    $Logger->log([ "could not retrieve from Spotify: %s", $res->status_line ]);
+    $Logger->log([
+      "could not retrieve %s from Spotify: %s",
+      $playlist->{id},
+      $res->status_line
+    ]);
     return;
   }
 
@@ -61,26 +71,37 @@ sub sync_playlist {
   $Logger->log_debug([ "spotify snapshot is %s", $snapshot_id ]);
 
   # If we got a snapshot, then we have no work to do! -- rjbs, 2021-02-09
-  if ($stored_snapshot->{ $snapshot_id }) {
-    $Logger->log_debug("up to date");
+  if (grep { $_->{playlist_snapshot_id} eq $snapshot_id } @$stored_snapshots) {
+    $Logger->log_debug("snapshot already stored (by snapshot id)");
+    return;
+  }
+
+  my $track_list_digest = md5_hex(
+    join q{ }, map {; $_->{track} ? $_->{track}{id} : q{-} } $snapshot->{tracks}{items}->@*
+  );
+
+  # If we got a snapshot, then we have no work to do! -- rjbs, 2021-02-09
+  if (grep { $_->{track_list_digest} eq $track_list_digest } @$stored_snapshots) {
+    $Logger->log_debug("snapshot already stored (by track list digest)");
     return;
   }
 
   my @tracks;
 
-  $Logger->log("saving snapshot $snapshot_id");
+  $Logger->log("saving snapshot $snapshot_id ($track_list_digest)");
 
   $Spudge->txn(sub {
     my $dbh = $_;
 
     $dbh->do(
       "INSERT INTO playlist_snapshots
-        (playlist_snapshot_id, playlist_id, snapshot_time)
-      VALUES (?, ?, ?)",
+        (playlist_snapshot_id, playlist_id, snapshot_time, track_list_digest)
+      VALUES (?, ?, ?, ?)",
       undef,
       $snapshot_id,
       $playlist->{id},
       $snapshot->{tracks}{items}[0]{added_at},
+      $track_list_digest,
     );
 
     my $row_id = $dbh->sqlite_last_insert_rowid;
@@ -92,11 +113,12 @@ sub sync_playlist {
     );
 
     my $position = 1;
-    for my $i (0 .. $snapshot->{tracks}{item}->$#*) {
+
+    for my $i (0 .. $snapshot->{tracks}{items}->$#*) {
       my $item  = $snapshot->{tracks}{items}[$i];
       my $track = $item->{track};
 
-      unless ($track) {
+      unless ($track && $track->{id}) {
         $Logger->log("skipping bizarro non-track item at index $i");
         next;
       }

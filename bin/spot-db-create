@@ -40,7 +40,8 @@ my @statements = (
       id integer PRIMARY KEY,
       playlist_snapshot_id text NOT NULL UNIQUE,
       playlist_id text NOT NULL REFERENCES playlists (id),
-      snapshot_time text NOT NULL
+      snapshot_time text NOT NULL,
+      track_list_digest text, /* should be not null */
     );
   },
   q{
