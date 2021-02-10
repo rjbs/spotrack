@@ -10,6 +10,10 @@ use experimental qw(signatures);
 use Path::Tiny;
 use Spudge;
 
+sub spudge ($self) {
+  $self->{spudge} //= Spudge->new;
+}
+
 sub decode_json ($self, $json) {
   require JSON::MaybeXS;
   state $JSON = JSON::MaybeXS->new->utf8;
@@ -29,15 +33,15 @@ sub pretty_json ($self, $data) {
 }
 
 sub storage_dir ($self) {
-  return $self->{storage_dir} //= Spudge->root_dir;
+  $self->spudge->root_dir;
 }
 
 sub sqlite_dbh ($self) {
-  Spudge->dbi_connector->dbh; # XXX replace me -- rjbs, 2021-02-08
+  $self->spudge->dbi_connector->dbh; # XXX replace me -- rjbs, 2021-02-08
 }
 
 sub bearer_token ($self) {
-  return $self->{bearer_token} //= Spudge->get_access_token;
+  return $self->{bearer_token} //= $self->spudge->access_token;
 }
 
 sub devices ($self) {
