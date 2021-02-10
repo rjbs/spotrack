@@ -1,0 +1,43 @@
+#!/usr/bin/env perl
+use 5.12.0;
+use warnings;
+
+use experimental 'postderef';
+
+use utf8;
+# binmode *STDOUT, ':encoding(utf-8)';
+
+use Digest::MD5 qw(md5_hex);
+use Getopt::Long::Descriptive;
+use JSON::MaybeXS ();
+use LWP::UserAgent;
+use Spudge;
+use Spudge::Logger '$Logger';
+
+my ($opt, $usage) = describe_options(
+  "%c %o",
+  [ 'type|t=s', "what type of playlists to check", { default => 'discover' } ],
+);
+
+my $JSON = JSON::MaybeXS->new;
+
+my $Spudge  = Spudge->new;
+my $token   = $Spudge->access_token;
+my $dbh     = $Spudge->dbi_connector->dbh;
+
+my $ua = LWP::UserAgent->new(keep_alive => 1);
+
+my $uri = "https://api.spotify.com/v1/playlists/$ARGV[0]";
+my $res = $ua->get($uri, 'Authorization' => "Bearer $token");
+
+unless ($res->is_success) {
+  $Logger->log([
+    "could not retrieve %s from Spotify: %s",
+    $ARGV[0],
+    $res->status_line
+  ]);
+  return;
+}
+
+my $snapshot    = $JSON->decode($res->decoded_content);
+print $JSON->canonical->pretty->encode($snapshot);
