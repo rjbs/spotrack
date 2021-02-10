@@ -31,6 +31,7 @@ my @statements = (
       human_id integer NOT NULL REFERENCES humans (id),
       type text NOT NULL,
       generator text NOT NULL,
+      is_mutable integer NOT NULL,
       UNIQUE(human_id, type)
     );
   },
@@ -38,7 +39,7 @@ my @statements = (
     CREATE TABLE playlist_snapshots (
       id integer PRIMARY KEY,
       playlist_snapshot_id text NOT NULL UNIQUE,
-      playlist_id text NOT NULL,
+      playlist_id text NOT NULL REFERENCES playlists (id),
       snapshot_time text NOT NULL
     );
   },

@@ -26,8 +26,8 @@ my $dbh     = $Spudge->dbi_connector->dbh;
 my $ua = LWP::UserAgent->new(keep_alive => 1);
 
 sub get_tracks {
-  my ($user_id, $playlist_id) = @_;
-  my $uri = "https://api.spotify.com/v1/users/$user_id/playlists/$playlist_id";
+  my ($playlist_id) = @_;
+  my $uri = "https://api.spotify.com/v1/playlists/$playlist_id";
   my $res = $ua->get($uri, 'Authorization' => "Bearer $token");
 
   unless ($res->is_success) {
@@ -113,7 +113,7 @@ sub compare_playlists {
   my $humans = $dbh->selectall_hashref('SELECT * FROM humans', 'id');
 
   my $playlists = $dbh->selectall_arrayref(
-    "SELECT id, generator, type, human_id FROM playlists WHERE type = ?",
+    "SELECT id, type, human_id FROM playlists WHERE type = ?",
     { Slice => {} },
     $type,
   );
@@ -127,7 +127,7 @@ sub compare_playlists {
             ? $humans->{ $playlist->{human_id} }->{name}
             : "human-$playlist->{human_id}";
 
-    $tracks_for{"$who/$playlist->{type}"} = get_tracks($playlist->{generator}, $playlist->{id});
+    $tracks_for{"$who/$playlist->{type}"} = get_tracks($playlist->{id});
   }
 
   my %on;

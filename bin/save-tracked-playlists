@@ -1,0 +1,146 @@
+#!/usr/bin/env perl
+use 5.12.0;
+use warnings;
+
+use experimental 'postderef';
+
+use utf8;
+# binmode *STDOUT, ':encoding(utf-8)';
+
+use Getopt::Long::Descriptive;
+use JSON::MaybeXS ();
+use LWP::UserAgent;
+use Spudge;
+use Spudge::Logger '$Logger';
+
+my ($opt, $usage) = describe_options(
+  "%c %o",
+  [ 'type|t=s', "what type of playlists to check", { default => 'discover' } ],
+);
+
+my $JSON = JSON::MaybeXS->new;
+
+my $Spudge  = Spudge->new;
+my $token   = $Spudge->access_token;
+my $dbh     = $Spudge->dbi_connector->dbh;
+
+my $ua = LWP::UserAgent->new(keep_alive => 1);
+
+sub sync_playlist {
+  my ($playlist) = @_;
+
+  my $ident = "$playlist->{name}/$playlist->{type} ($playlist->{id})";
+
+  my ($stored_snapshot) = $dbh->selectall_hashref(
+    "SELECT playlist_snapshot_id FROM playlist_snapshots WHERE playlist_id = ?",
+    'playlist_snapshot_id',
+    { Slice => {} },
+    $playlist->{id},
+  );
+
+  if (keys %$stored_snapshot && not $playlist->{is_mutable}) {
+    # Immutable playlist already has a snapshot.  Let's skip it.
+    $Logger->log_debug([ "skipping saved and immutable playlist" ]);
+    return;
+  }
+
+  # First, we fetch the current state of the playlist.  If we already have its
+  # current snapshot id on file, then there's nothing to do.  Otherwise, we'll
+  # cache it to the database. -- rjbs, 2021-02-09
+  my $uri = "https://api.spotify.com/v1/playlists/$playlist->{id}";
+  my $res = $ua->get($uri, 'Authorization' => "Bearer $token");
+
+  unless ($res->is_success) {
+    $Logger->log([ "could not retrieve from Spotify: %s", $res->status_line ]);
+    return;
+  }
+
+  my $snapshot    = $JSON->decode($res->decoded_content);
+  my $snapshot_id = $snapshot->{snapshot_id};
+
+  $Logger->log_debug([ "spotify snapshot is %s", $snapshot_id ]);
+
+  # If we got a snapshot, then we have no work to do! -- rjbs, 2021-02-09
+  if ($stored_snapshot->{ $snapshot_id }) {
+    $Logger->log_debug("up to date");
+    return;
+  }
+
+  my @tracks;
+
+  $Logger->log("saving snapshot $snapshot_id");
+
+  $Spudge->txn(sub {
+    my $dbh = $_;
+
+    $dbh->do(
+      "INSERT INTO playlist_snapshots
+        (playlist_snapshot_id, playlist_id, snapshot_time)
+      VALUES (?, ?, ?)",
+      undef,
+      $snapshot_id,
+      $playlist->{id},
+      $snapshot->{tracks}{items}[0]{added_at},
+    );
+
+    my $row_id = $dbh->sqlite_last_insert_rowid;
+
+    my $sth = $dbh->prepare(
+      "INSERT INTO playlist_snapshot_tracks
+        (snapshot_id, position, track_id, artist, title)
+      VALUES (?, ?, ?, ?, ?)",
+    );
+
+    my $position = 1;
+    for my $i (0 .. $snapshot->{tracks}{item}->$#*) {
+      my $item  = $snapshot->{tracks}{items}[$i];
+      my $track = $item->{track};
+
+      unless ($track) {
+        $Logger->log("skipping bizarro non-track item at index $i");
+        next;
+      }
+
+      next if $track->{is_local}; # Should never happen, right?
+
+      my $artists = join q{; }, map {; $_->{name} } @{ $track->{artists} };
+
+      my $row = {
+        snapshot_id => $row_id,
+        position    => $position++,
+        track_id    => $track->{id},
+        artist      => $artists,
+        title       => $track->{name},
+      };
+
+      push @tracks, $row;
+
+      $sth->execute($row->@{qw( snapshot_id position track_id artist title )});
+    }
+  });
+
+  return { map {; $_->{track_id} => $_ } @tracks };
+}
+
+## REAL PROGRAM HERE
+
+my $playlists = $dbh->selectall_arrayref(
+  "SELECT playlists.id, is_mutable, type, human_id, humans.name AS name
+  FROM playlists
+  JOIN humans ON humans.id = playlists.human_id
+  WHERE is_active = 1
+  ORDER BY name, type",
+  { Slice => {} },
+);
+
+die "no playlists to sync\n" unless @$playlists;
+
+for my $playlist (@$playlists) {
+  local $Logger = $Logger->proxy({
+    proxy_prefix => "[$playlist->{name}/$playlist->{type}] ",
+  });
+
+  sync_playlist($playlist);
+}
+
+$Logger->log("Saved copies of everyone's playlists.  This is not creepy.");
