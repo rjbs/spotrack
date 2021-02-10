@@ -8,8 +8,6 @@ use utf8;
 # binmode *STDOUT, ':encoding(utf-8)';
 
 use Getopt::Long::Descriptive;
-use JSON::MaybeXS ();
-use LWP::UserAgent;
 use Spudge;
 
 my ($opt, $usage) = describe_options(
@@ -17,8 +15,6 @@ my ($opt, $usage) = describe_options(
   [ 'type|t=s', "what type of playlists to compare", { default => 'discover' } ],
   [ 'tag|T=s',  "what type of humans to compare" ],
 );
-
-my $JSON = JSON::MaybeXS->new;
 
 my $Spudge  = Spudge->new;
 my $dbh     = $Spudge->dbi_connector->dbh;
