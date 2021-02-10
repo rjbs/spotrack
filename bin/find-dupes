@@ -1,0 +1,93 @@
+#!/usr/bin/env perl
+use 5.12.0;
+use warnings;
+
+use experimental 'postderef';
+
+use utf8;
+# binmode *STDOUT, ':encoding(utf-8)';
+
+use Digest::MD5 qw(md5_hex);
+use Getopt::Long::Descriptive;
+use Spudge;
+
+my ($opt, $usage) = describe_options(
+  "%c %o",
+  [ 'purge', 'delete duplicate snapshots' ],
+);
+
+my $Spudge  = Spudge->new;
+my $dbh     = $Spudge->dbi_connector->dbh;
+
+my $playlists = $dbh->selectall_arrayref(
+  qq{
+    SELECT playlists.id, type, human_id, humans.name AS name
+    FROM playlists
+    JOIN humans ON playlists.human_id = humans.id
+  },
+  { Slice => {} },
+);
+
+PLAYLIST: for my $playlist (@$playlists) {
+  my $ident = "$playlist->{name}/$playlist->{type}";
+
+  my $snapshots = $dbh->selectall_arrayref(
+    qq{
+      SELECT *
+      FROM playlist_snapshots
+      WHERE playlist_id = ?
+    },
+    { Slice => {} },
+    $playlist->{id},
+  );
+
+  next PLAYLIST unless @$snapshots > 1;
+
+  my %seen_md5;
+
+  for my $snapshot (@$snapshots) {
+    my $tracks = $dbh->selectall_arrayref(
+      qq{
+        SELECT position, track_id
+        FROM playlist_snapshot_tracks
+        WHERE snapshot_id = ?
+        ORDER BY position
+      },
+      { Slice => {} },
+      $snapshot->{id},
+    );
+
+    my $hex = md5_hex(join q{ }, map {; $_->{track_id} } @$tracks);
+
+    $dbh->do(
+      "UPDATE playlist_snapshots SET track_list_digest = ? WHERE id = ?",
+      undef,
+      $hex,
+      $snapshot->{id},
+    );
+    next unless $seen_md5{ $hex }++;
+
+    printf "%-20s %4i. %s - %s - %s\n",
+      "[$ident]",
+      $snapshot->{id},
+      $snapshot->{snapshot_time},
+      substr($hex, 0, 6),
+      $snapshot->{playlist_snapshot_id};
+
+    if ($opt->purge) {
+      $Spudge->txn(sub {
+        my $dbh = $_;
+        $dbh->do(
+          "DELETE FROM playlist_snapshot_tracks WHERE snapshot_id = ?",
+          undef,
+          $snapshot->{id},
+        );
+        $dbh->do(
+          "DELETE FROM playlist_snapshots WHERE id = ?",
+          undef,
+          $snapshot->{id},
+        );
+      });
+    }
+  }
+}
