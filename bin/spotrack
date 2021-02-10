@@ -14,120 +14,68 @@ use Spudge;
 
 my ($opt, $usage) = describe_options(
   "%c %o",
-  [ 'type|t=s', "what type of playlists to check", { default => 'discover' } ],
+  [ 'type|t=s', "what type of playlists to compare", { default => 'discover' } ],
+  [ 'tag|T=s',  "what type of humans to compare" ],
 );
 
 my $JSON = JSON::MaybeXS->new;
 
 my $Spudge  = Spudge->new;
-my $token   = $Spudge->access_token;
 my $dbh     = $Spudge->dbi_connector->dbh;
-
-my $ua = LWP::UserAgent->new(keep_alive => 1);
 
 sub get_tracks {
   my ($playlist_id) = @_;
-  my $uri = "https://api.spotify.com/v1/playlists/$playlist_id";
-  my $res = $ua->get($uri, 'Authorization' => "Bearer $token");
-
-  unless ($res->is_success) {
-    warn "failed to get myself from Spotify: " . $res->status_line . "\n";
-    return;
-  }
-
-  my $playlist = $JSON->decode($res->decoded_content);
-  my $snapshot_id = $playlist->{snapshot_id};
 
   my ($snapshot_row_id) = $dbh->selectrow_array(
-    "SELECT id FROM playlist_snapshots
-    WHERE playlist_snapshot_id = ? AND playlist_id = ?",
+    "SELECT id
+    FROM playlist_snapshots
+    WHERE playlist_id = ?
+    ORDER BY snapshot_time DESC
+    LIMIT 1",
     { Slice => {} },
-    $snapshot_id,
     $playlist_id,
   );
 
-  my @tracks;
-  if ($snapshot_row_id) {
-    # we have a snapshot!
-    my $tracks_ref = $dbh->selectall_arrayref(
-      "SELECT * FROM playlist_snapshot_tracks
-      WHERE snapshot_id = ?",
-      { Slice => {} },
-      $snapshot_row_id,
-    );
+  return {} unless $snapshot_row_id;
 
-    @tracks = @$tracks_ref;
-  } else {
-    say "saving tracks for playlist snapshot $snapshot_id";
+  # we have a snapshot!
+  my $tracks_ref = $dbh->selectall_hashref(
+    "SELECT * FROM playlist_snapshot_tracks WHERE snapshot_id = ?",
+    'track_id',
+    { Slice => {} },
+    $snapshot_row_id,
+  );
 
-    die "can't start transaction: " . $dbh->errstr . "\n"
-      unless $dbh->begin_work;
-
-    $dbh->do(
-      "INSERT INTO playlist_snapshots
-        (playlist_snapshot_id, playlist_id, snapshot_time)
-      VALUES (?, ?, ?)",
-      undef,
-      $snapshot_id, $playlist_id, $playlist->{tracks}{items}[0]{added_at},
-    );
-
-    my $row_id = $dbh->sqlite_last_insert_rowid;
-
-    my $sth = $dbh->prepare(
-      "INSERT INTO playlist_snapshot_tracks
-        (snapshot_id, position, track_id, artist, title)
-      VALUES (?, ?, ?, ?, ?)",
-    );
-
-    my $position = 1;
-    for my $item (@{ $playlist->{tracks}{items} }) {
-      my $track = $item->{track};
-
-      next if $track->{is_local}; # Should never happen, right?
-
-      my $artists = join q{; }, map {; $_->{name} } @{ $track->{artists} };
-
-      my $row = {
-        snapshot_id => $row_id,
-        position    => $position++,
-        track_id    => $track->{id},
-        artist      => $artists,
-        title       => $track->{name},
-      };
-
-      push @tracks, $row;
-
-      $sth->execute($row->@{qw( snapshot_id position track_id artist title )});
-    }
-
-    die "can't commit transaction: " . $dbh->errstr . "\n"
-      unless $dbh->commit;
-  }
-
-  return { map {; $_->{track_id} => $_ } @tracks };
+  return $tracks_ref;
 }
 
 sub compare_playlists {
-  my $type = $opt->type;
+  my $type   = $opt->type;
 
-  my $humans = $dbh->selectall_hashref('SELECT * FROM humans', 'id');
+  my @bind = $opt->tag ? $opt->tag : ();
+  my $sql  = $opt->tag
+           ? "AND human_id IN (SELECT human_id FROM human_tags WHERE tag = ?)"
+           : q{};
 
   my $playlists = $dbh->selectall_arrayref(
-    "SELECT id, type, human_id FROM playlists WHERE type = ?",
+    qq{
+      SELECT playlists.id, type, human_id, humans.name AS name
+      FROM playlists
+      JOIN humans ON playlists.human_id = humans.id
+      WHERE type = ?
+        AND is_active = 1
+        $sql
+    },
     { Slice => {} },
     $type,
+    @bind,
   );
 
   die sprintf "no playlists of type %s\n", $type unless @$playlists;
 
   my %tracks_for;
   for my $playlist (@$playlists) {
-    # Hello, Human-17, the classifier/shredder is ready for you.
-    my $who = $humans->{ $playlist->{human_id} }
-            ? $humans->{ $playlist->{human_id} }->{name}
-            : "human-$playlist->{human_id}";
-
-    $tracks_for{"$who/$playlist->{type}"} = get_tracks($playlist->{id});
+    $tracks_for{"$playlist->{name}/$playlist->{type}"} = get_tracks($playlist->{id});
   }
 
   my %on;
