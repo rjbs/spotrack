@@ -7,12 +7,8 @@ use experimental qw( postderef signatures );
 use utf8;
 binmode *STDOUT, ':encoding(utf-8)';
 
-use DBI;
-use DateTime;
 use Getopt::Long::Descriptive;
-use JSON 2 ();
 use Lingua::EN::Inflect qw(ORD);
-use LWP::UserAgent;
 use Spudge;
 use Term::ANSIColor;
 
@@ -35,8 +31,6 @@ my ($human_id) = $Spudge->dbi_connector->dbh->selectrow_array(
 );
 
 die "don't know user " . $opt->for . "\n" unless $human_id;
-
-my $ua = LWP::UserAgent->new(keep_alive => 1);
 
 my $snapshot_row;
 my $dbh = $Spudge->dbi_connector->dbh;
