@@ -96,8 +96,8 @@ RANGE: for my $track (@$tracks) {
   printf "%s %2i. %s by %s%s\n",
     $movement,
     $track->{position},
-    colored(['ansi118'], $track->{title}),
-    colored(['ansi70'], @rest ? "$artist (&c.)" : $artist),
+    colored(['ansi229'], $track->{title}),
+    colored(['ansi189'], @rest ? "$artist (&c.)" : $artist),
     ($track->{run_count} > 1 ? (ORD($track->{run_count}) . " week on the chart")
                              : q{});
 }
