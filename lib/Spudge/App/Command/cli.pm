@@ -12,12 +12,6 @@ use Term::ANSIColor;
 
 sub abstract { "a CLI for Spotify" }
 
-sub opt_spec {
-  return (
-    [ 'offline',    "offline, totally fake, does not work mode" ],
-  );
-}
-
 sub execute ($self, $opt, $args) {
   require Spudge::CLI;
   require Term::ReadLine;
