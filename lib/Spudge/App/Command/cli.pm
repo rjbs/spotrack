@@ -8,8 +8,6 @@ use utf8;
 
 use experimental qw(postderef signatures);
 
-use CliM8::HTTP;
-use CliM8::Util qw( activityloop matesay );
 use Term::ANSIColor;
 
 sub abstract { "a CLI for Spotify" }
@@ -25,12 +23,15 @@ sub execute ($self, $opt, $args) {
   require Term::ReadLine;
   require Term::ReadLine::Gnu;
 
+  require CliM8::HTTP;
+  require CliM8::Util;
+
   my $cli = Spudge::CLI->new({ appcmd => $self });
 
-  activityloop($cli->activity(boot => { opts => $opt }));
+  CliM8::Util::activityloop($cli->activity(boot => { opts => $opt }));
 
   say q{};
-  matesay("Onya, buddy, you're all done!  Catch you later!");
+  CliM8::Util::matesay("Onya, buddy, you're all done!  Catch you later!");
 }
 
 1;
