@@ -1,26 +1,28 @@
-#!/usr/bin/env perl
-use 5.12.0;
+use 5.20.0;
 use warnings;
+package Spudge::App::Command::showcrossovers;
 
-use experimental 'postderef';
+use Spudge::App -command;
 
 use utf8;
-# binmode *STDOUT, ':encoding(utf-8)';
 
-use Getopt::Long::Descriptive;
-use Spudge;
+use experimental qw(postderef signatures);
 
-my ($opt, $usage) = describe_options(
-  "%c %o",
-  [ 'type|t=s', "what type of playlists to compare", { default => 'discover' } ],
-  [ 'tag|T=s',  "what type of humans to compare" ],
-);
+use Term::ANSIColor;
 
-my $Spudge  = Spudge->new;
-my $dbh     = $Spudge->dbi_connector->dbh;
+sub abstract { 'show crossovers between playlists' }
 
-sub get_tracks {
-  my ($playlist_id) = @_;
+sub command_names { qw(show-crossovers showcrossovers xovers) }
+
+sub opt_spec {
+  return (
+    [ 'type|t=s', "what type of playlists to compare", { default => 'discover' } ],
+    [ 'tag|T=s',  "what type of humans to compare" ],
+  );
+}
+
+sub _get_tracks {
+  my ($self, $dbh, $playlist_id) = @_;
 
   my ($snapshot_row_id) = $dbh->selectrow_array(
     "SELECT id
@@ -45,7 +47,10 @@ sub get_tracks {
   return $tracks_ref;
 }
 
-sub compare_playlists {
+sub execute ($self, $opt, $args) {
+  my $Spudge  = Spudge->new;
+  my $dbh     = $Spudge->dbi_connector->dbh;
+
   my $type   = $opt->type;
 
   my @bind = $opt->tag ? $opt->tag : ();
@@ -71,7 +76,7 @@ sub compare_playlists {
 
   my %tracks_for;
   for my $playlist (@$playlists) {
-    $tracks_for{"$playlist->{name}/$playlist->{type}"} = get_tracks($playlist->{id});
+    $tracks_for{"$playlist->{name}/$playlist->{type}"} = $self->_get_tracks($dbh, $playlist->{id});
   }
 
   my %on;
@@ -93,4 +98,4 @@ sub compare_playlists {
   }
 }
 
-compare_playlists($opt->type);
+1;
