@@ -55,7 +55,7 @@ sub _save_complete_history ($self) {
       my $playlist = $self->_json->decode($res->decoded_content);
 
       unless ($playlist->{items}->@*) {
-        warn "no new items to record\n";
+        $Logger->log("no new items to record");
         return;
       }
 
@@ -80,7 +80,7 @@ sub _save_complete_history ($self) {
           $by,
           q{}, # We need to fetch the track separately to get album name.
           $title,
-          $item->{context}{uri},
+          $item->{context}{uri} // q{}, # Bogus. -- rjbs, 2021-02-11
         );
       }
 
@@ -230,7 +230,7 @@ sub _save_tracked_playlists ($self) {
   );
 
   unless (@$playlists) {
-    warn "no playlists to sync\n";
+    $Logger->log("no playlists to sync");
     return;
   }
 
@@ -282,7 +282,7 @@ sub _save_top_tracks ($self) {
         my $dbh = $_;
 
         if ($self->_get_snapshot($human_id, $time_range, $yyyymm)) {
-          warn "Already have top tracks for $yyyymm/$time_range\n";
+          $Logger->log("Already have top tracks for $yyyymm/$time_range");
           return;
         }
 
@@ -311,14 +311,14 @@ sub _save_top_tracks ($self) {
         my $res = $self->_ua->get($uri, 'Authorization' => "Bearer $token");
 
         unless ($res->is_success) {
-          warn "failed to get myself from Spotify: " . $res->status_line . "\n";
+          warn "failed to get top tracks from Spotify: " . $res->status_line . "\n";
           return;
         }
 
         my $playlist = $self->_json->decode($res->decoded_content);
 
         unless ($playlist->{items}->@*) {
-          warn "no new items to record\n";
+          $Logger->log("no new items to record");
           return;
         }
 
