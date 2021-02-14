@@ -49,6 +49,11 @@ has access_token => (
     );
 
     my $token_obj = $client->refresh_access_token(refresh_token => $refresh);
+
+    unless ($token_obj) {
+      Carp::confess("Couldn't refresh access token: " . $client->errstr);
+    }
+
     return $token_obj->access_token;
   },
 );
