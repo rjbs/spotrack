@@ -39,6 +39,12 @@ use Spudge::AO::Track;
 use Spudge::Util;
 use URI;
 
+my %COLOR = (
+  album   => [ 'ansi179' ],
+  artist  => [ 'ansi36' ],
+  track   => [ 'ansi226' ],
+);
+
 has client => (
   is      => 'ro',
   lazy    => 1,
@@ -169,8 +175,8 @@ sub _do_search ($self, $search, $types) {
     for my $album (@albums) {
       printf "% 3s. %s by %s\n",
         ('r' . ++$i),
-        colored(['ansi179'], $album->name),
-        colored(['ansi36'],
+        colored($COLOR{album}, $album->name),
+        colored($COLOR{artist},
           (join q{; }, map {; $_->name } $album->artists));
     }
     say q{};
@@ -182,7 +188,7 @@ sub _do_search ($self, $search, $types) {
     for my $artist (@artists) {
       printf "% 3s. %s\n",
         ('a' . ++$i),
-        colored(['ansi36'], $artist->name);
+        colored($COLOR{artist}, $artist->name);
     }
 
     say q{};
@@ -194,11 +200,11 @@ sub _do_search ($self, $search, $types) {
     for my $track (@tracks) {
       printf "% 3s. %s%s by %s\n",
         ('t' . ++$i),
-        colored(['ansi226'], $track->name),
+        colored($COLOR{track}, $track->name),
         (($track->name ne $track->album->name)
-          ? sprintf(' (%s)', colored(['ansi179'], $track->album->name))
+          ? sprintf(' (%s)', colored($COLOR{album}, $track->album->name))
           : ''),
-        colored(['ansi36'],
+        colored($COLOR{artist},
           (join q{; }, map {; $_->name } $track->artists));
     }
   }
@@ -241,18 +247,43 @@ command 'now' => (
   sub ($self, $cmd, $rest) {
     my $res = $self->api_get('/me/player');
 
-    my $data = $self->decode_json($res->decoded_content);
+    if ($res->code == 204) {
+      okaysay("Nothing playing, nothing paused!");
+      cmdnext;
+    }
 
-    Spudge::Util->print_devices([ $data->{device} ]);
+    my $data = $self->decode_json($res->decoded_content);
 
     if ($data->{item} && $data->{item}{type} eq 'track') {
       my $track   = Spudge::AO::Track->from_struct($data->{item});
-      my @artists = $track->artists;
-      say sprintf "Now playing %s by %s %s on the album %s.",
-        colored(['bold', 'white'], $track->name),
-        (@artists > 1 ? "artists" : "artist"),
-        _and_list(map {; colored(['bold', 'white'], $_->name) } @artists),
-        colored(['bold','white'], $track->album->name);
+
+      my %is_album_artist  = map  {; $_->{name} => 1 } $track->album->artists;
+      my @featured_artists = grep {; ! $is_album_artist{$_->name} } $track->artists;
+
+      my $play  = "\N{BLACK RIGHT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}";
+      my $pause = "\N{DOUBLE VERTICAL BAR}";
+
+      printf "%s  Now %s on your %s %s:\n",
+        ($data->{is_playing} ? ($play, 'playing') : ($pause, 'paused')),
+        lc $data->{device}{type},
+        $data->{device}{name};
+
+      if ($track->album->name eq $track->name) {
+        printf "   %s by %s\n",
+          colored($COLOR{track}, $track->name),
+          _and_list(map {; colored($COLOR{artist}, $_->name) } $track->artists);
+      } elsif (@featured_artists) {
+        printf "   %s (featuring %s)\n   on the album %s by %s.",
+          colored($COLOR{track}, $track->name),
+          _and_list(map {; colored($COLOR{artist}, $_->name) } @featured_artists),
+          colored($COLOR{album}, $track->album->name),
+          _and_list(map {; colored($COLOR{artist}, $_->name) } $track->album->artists);
+      } else {
+        printf "   %s on the album %s by %s.",
+          colored($COLOR{track}, $track->name),
+          colored($COLOR{album}, $track->album->name),
+          _and_list(map {; colored($COLOR{artist}, $_->name) } $track->artists);
+      }
     } else {
       matesay "I don't know how to summarize what you're listening to.";
     }
