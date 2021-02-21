@@ -204,15 +204,20 @@ sub _do_search ($self, $search, $types) {
   }
 }
 
+sub _page_json_data ($self, $data) {
+  my $json = JSON::MaybeXS->new->pretty->canonical->encode($data);
+  open my $pager, "|-", "less", "-M";
+  binmode $pager, ':encoding(UTF-8)';
+  print $pager $json;
+}
+
 command 'json' => (
   help => {
     summary => 'pipe JSON of search results to pager',
   },
   sub ($self, $cmd, $rest) {
     cmderr "You don't have any search results!"  unless $self->_last_search_raw;
-    my $json = JSON::MaybeXS->new->pretty->canonical->encode($self->_last_search_raw);
-    open my $pager, "|-", "less", "-M";
-    print $pager $json;
+    $self->_page_json_data($self->_last_search_raw);
   },
 );
 
@@ -347,41 +352,42 @@ sub _and_list (@list) {
 }
 
 sub _summarize ($self, $thing) {
-  return "a weird thing" unless $thing->{type};
+  if ($thing->$_isa('Spudge::AO::Track')) {
+    my @artists = $thing->artists;
 
-  if ($thing->{type} eq 'track') {
     return sprintf "the track %s by %s %s on the album %s",
-      colored(['bold', 'white'], $thing->{name}),
-      ($thing->{artists}->@* > 1 ? "artists" : "artist"),
-      _and_list(map {; colored(['bold', 'white'], $_->{name}) } $thing->{artists}->@*),
-      colored(['bold','white'], $thing->{album}{name});
+      colored(['bold', 'white'], $thing->name),
+      (@artists > 1 ? "artists" : "artist"),
+      _and_list(map {; colored(['bold', 'white'], $_->name) } @artists),
+      colored(['bold','white'], $thing->album->name);
   }
 
-  if ($thing->{type} eq 'album') {
+  if ($thing->$_isa('Spudge::AO::Album')) {
     return sprintf "the album %s by %s",
-      colored(['bold','white'], $thing->{name}),
-      _and_list(map {; colored(['bold', 'white'], $_->{name}) } $thing->{artists}->@*);
+      colored(['bold','white'], $thing->name),
+      _and_list(map {; colored(['bold', 'white'], $_->name) } $thing->artists);
   }
 
-  if ($thing->{type} eq 'artist') {
+  if ($thing->$_isa('Spudge::AO::Artist')) {
     return sprintf "songs by %s",
-      colored(['bold','white'], $thing->{name});
+      colored(['bold','white'], $thing->name);
   }
 
-  if ($thing->{type} eq 'playlist') {
+  # XXX Does not actually exist yet. -- rjbs, 2021-02-20
+  if ($thing->$_isa('Spudge::AO::Playlist')) {
     # We grep for defined because a track can be null if it has been deleted
     # from Spotify since being added to the playlist. -- rjbs, 2020-04-12
-    my ($first) = grep {; defined } $thing->{tracks}{items}->@*;
+    my ($first) = grep {; defined } $thing->playlist_tracks;
 
     unless ($first) {
       return sprintf "the playlist %s",
-        colored(['bold','white'], $thing->{name});
+        colored(['bold','white'], $thing->name);
     }
 
     return sprintf "the playlist %s, starting with %s by %s",
-      colored(['bold','white'], $thing->{name}),
-      colored(['bold','white'], $first->{track}{name}),
-      _and_list(map {; colored(['bold', 'white'], $_->{name}) } $first->{track}{artists}->@*);
+      colored(['bold','white'], $thing->name),
+      colored(['bold','white'], $first->track->name),
+      _and_list(map {; colored(['bold', 'white'], $_->name) } $first->track->artists);
   }
 
   return "a weird $thing->{type}";
