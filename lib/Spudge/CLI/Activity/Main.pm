@@ -100,60 +100,96 @@ has _last_search     => (is => 'rw');
 has _last_search_raw => (is => 'rw');
 
 command 'search' => (
+  aliases => [ '/' ],
   help    => {
-    summary => 'list your available playback devices',
+    summary => 'search for anything',
+    text    => <<'END',
+Use double quotes to indicate words need to occur together, like "Roadhouse
+Blues" to avoid matching "Blues at the Roadhouse".
+
+Use "NOT" or a "-" prefix to exclude results.  "AND" and "+" also exist.
+
+Key/value pairs, separated by a colon, can limit search by specific attributes.
+For example, "album:rumours" or "artist:Mothersbaugh".
+
+Valid attributes include:
+
+    album   - the album name
+    artist  - name of an artist on the result
+    genre   - genre of music to search
+    label   - name of the label releasing the music
+    track   - name of a track being searched for
+    year    - year or year range (X-Y) of the item
+END
   },
   sub ($self, $cmd, $rest) {
-    my $uri = URI->new("/search");
-    $uri->query_form(
-      q    => $rest,
-      type => 'artist,album,track',
-    );
-
-    my $res  = $self->api_get($uri);
-
-    require Spudge::AO::SearchResult;
-    require Spudge::AO::Page;
-    require Spudge::AO::Album;
-    require Spudge::AO::Artist;
-    require Spudge::AO::Track;
-
-    my $data = $self->client->decode_json($res->decoded_content);
-    my $result = Spudge::AO::SearchResult->from_hashref({
-      $data->%{ qw(albums artists tracks) },
-    });
-
-    $self->_last_search_raw($data);
-    $self->_last_search($result);
-
-    if (my @albums = $result->albums->items) {
-      say colored('ping', "[Albums]");
-      my $i = 0;
-      for my $album (@albums) {
-        printf "% 3s. %s\n", ('r' . ++$i), $album->name;
-      }
-      say q{};
-    }
-
-    if (my @artists = $result->artists->items) {
-      say colored('ping', "[Artists]");
-      my $i = 0;
-      for my $artist (@artists) {
-        printf "% 3s. %s\n", ('a' . ++$i), $artist->name;
-      }
-
-      say q{};
-    }
-
-    if (my @tracks = $result->tracks->items) {
-      say colored('ping', "[Tracks]");
-      my $i = 0;
-      for my $track (@tracks) {
-        printf "% 3s. %s\n", ('t' . ++$i), $track->name;
-      }
-    }
+    $self->_do_search($rest, [ qw( artist album track ) ]);
   },
 );
+
+for my $what (qw( art.ist alb.um tr.ack )) {
+  my $dotless = $what =~ s/\.//gr;
+  command $what => (
+    help    => {
+      summary => "search for ${dotless}s",
+      text    => 'see "help search" for more on search options',
+    },
+    sub ($self, $cmd, $rest) {
+      $self->_do_search($rest, [ $dotless ]);
+    },
+  );
+}
+
+sub _do_search ($self, $search, $types) {
+  my $uri = URI->new("/search");
+  $uri->query_form(
+    q    => $search,
+    type => join(q{,}, @$types),
+  );
+
+  my $res  = $self->api_get($uri);
+
+  require Spudge::AO::SearchResult;
+  require Spudge::AO::Page;
+  require Spudge::AO::Album;
+  require Spudge::AO::Artist;
+  require Spudge::AO::Track;
+
+  my $data = $self->client->decode_json($res->decoded_content);
+  my $result = Spudge::AO::SearchResult->from_hashref({
+    $data->%{ qw(albums artists tracks) },
+  });
+
+  $self->_last_search_raw($data);
+  $self->_last_search($result);
+
+  if (my @albums = $result->albums->items) {
+    say colored('ping', "[Albums]");
+    my $i = 0;
+    for my $album (@albums) {
+      printf "% 3s. %s\n", ('r' . ++$i), $album->name;
+    }
+    say q{};
+  }
+
+  if (my @artists = $result->artists->items) {
+    say colored('ping', "[Artists]");
+    my $i = 0;
+    for my $artist (@artists) {
+      printf "% 3s. %s\n", ('a' . ++$i), $artist->name;
+    }
+
+    say q{};
+  }
+
+  if (my @tracks = $result->tracks->items) {
+    say colored('ping', "[Tracks]");
+    my $i = 0;
+    for my $track (@tracks) {
+      printf "% 3s. %s\n", ('t' . ++$i), $track->name;
+    }
+  }
+}
 
 command 'json' => (
   help => {
