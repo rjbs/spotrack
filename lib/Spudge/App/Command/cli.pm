@@ -25,7 +25,7 @@ sub execute ($self, $opt, $args) {
   CliM8::Util::activityloop($cli->activity(boot => { opts => $opt }));
 
   say q{};
-  CliM8::Util::matesay("Onya, buddy, you're all done!  Catch you later!");
+  CliM8::Util::matesay("See you later…");
 }
 
 1;
