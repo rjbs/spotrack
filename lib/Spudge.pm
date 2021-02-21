@@ -11,6 +11,8 @@ use OAuth::Lite2;
 use OAuth::Lite2::Client::WebServer;
 use Path::Tiny ();
 
+use Spudge::Client;
+
 state $JSON = JSON::MaybeXS->new;
 
 has root_dir => (
@@ -28,33 +30,19 @@ has root_dir => (
   },
 );
 
-has access_token => (
+has client => (
   is => 'ro',
   lazy => 1,
-  clearer => 'clear_access_token',
   default => sub ($self, @) {
     my $root = $self->root_dir;
 
     my $config = $JSON->decode( $root->child("oauth.json")->slurp );
 
-    my $id      = $config->{id};
-    my $secret  = $config->{secret};
-    my $refresh = $config->{refresh};
-
-    my $client = OAuth::Lite2::Client::WebServer->new(
-      id               => $id,
-      secret           => $secret,
-      authorize_uri    => q{https://accounts.spotify.com/authorize},
-      access_token_uri => q{https://accounts.spotify.com/api/token},
-    );
-
-    my $token_obj = $client->refresh_access_token(refresh_token => $refresh);
-
-    unless ($token_obj) {
-      Carp::confess("Couldn't refresh access token: " . $client->errstr);
-    }
-
-    return $token_obj->access_token;
+    return Spudge::Client->new({
+      client_id     => $config->{id},
+      client_secret => $config->{secret},
+      refresh_token => $config->{refresh},
+    });
   },
 );
 

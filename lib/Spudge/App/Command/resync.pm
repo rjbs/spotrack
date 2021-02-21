@@ -27,7 +27,7 @@ sub _ua ($self) {
 }
 
 sub _save_complete_history ($self) {
-  my $token = $self->_spudge->access_token;
+  my $token = $self->_spudge->client->access_token;
 
   $self->_spudge->txn(sub {
     my $dbh = $_;
@@ -102,7 +102,7 @@ sub _sync_playlist {
 
   my $dbh   = $self->_spudge->dbi_connector->dbh;
   my $ident = "$playlist->{name}/$playlist->{type} ($playlist->{id})";
-  my $token = $self->_spudge->access_token;
+  my $token = $self->_spudge->client->access_token;
 
   my ($stored_snapshots) = $dbh->selectall_arrayref(
     "SELECT * FROM playlist_snapshots WHERE playlist_id = ?",
@@ -217,7 +217,7 @@ sub _sync_playlist {
 }
 
 sub _save_tracked_playlists ($self) {
-  my $token   = $self->_spudge->access_token;
+  my $token   = $self->_spudge->client->access_token;
   my $dbh     = $self->_spudge->dbi_connector->dbh;
 
   my $playlists = $dbh->selectall_arrayref(
@@ -260,7 +260,7 @@ sub _get_snapshot ($self, $human_id, $time_range, $yyyymm) {
 }
 
 sub _save_top_tracks ($self) {
-  my $token  = $self->_spudge->access_token;
+  my $token  = $self->_spudge->client->access_token;
 
   my $owner = $ENV{USER} // die "who are you?";
 

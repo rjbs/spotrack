@@ -21,15 +21,15 @@ sub opt_spec {
 sub execute ($self, $opt, $args) {
   my $device = $self->app->find_device($opt->on_device) if $opt->on_device;
 
-  my $result = $self->app->_stupid_search($args);
+  my $result = $self->app->spudge->client->_stupid_search($args);
 
   die "didn't understand what to play\n" unless $result;
 
-  my $res = $self->app->spotify_put(
+  my $res = $self->app->spudge->client->api_put(
     "/me/player/play"
       . ($device ? "?device_id=$device->{id}" : ''),
     'Content-Type'  => 'application/json',
-    Content => $self->app->encode_json({
+    Content => $self->app->spudge->client->encode_json({
       $self->_thing_to_play_content($result)
     })
   );
@@ -51,7 +51,7 @@ sub _thing_to_play_content ($self, $thing) {
 }
 
 sub _error_from_res ($self, $res) {
-  $self->app->decode_json($res->decoded_content)->{error}{message};
+  $self->app->spudge->client->decode_json($res->decoded_content)->{error}{message};
 }
 
 sub _and_list (@list) {

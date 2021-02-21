@@ -103,7 +103,7 @@ command 'search' => (
       type => 'artist,album,track',
     );
 
-    my $res  = $self->app->appcmd->app->spotify_get($uri);
+    my $res  = $self->app->appcmd->app->spudge->client->api_get($uri);
 
     require Spudge::AO::SearchResult;
     require Spudge::AO::Page;
@@ -111,7 +111,7 @@ command 'search' => (
     require Spudge::AO::Artist;
     require Spudge::AO::Track;
 
-    my $data = $self->app->appcmd->app->decode_json($res->decoded_content);
+    my $data = $self->app->appcmd->app->spudge->client->decode_json($res->decoded_content);
     my $result = Spudge::AO::SearchResult->from_hashref({
       $data->%{ qw(albums artists tracks) },
     });
@@ -200,10 +200,10 @@ command 'play' => (
         }
       : { context_uri => $item->uri };
 
-    my $res = $self->app->appcmd->app->spotify_put(
+    my $res = $self->app->appcmd->app->spudge->client->api_put(
       "/me/player/play",
       'Content-Type'  => 'application/json',
-      Content => $self->app->appcmd->app->encode_json($to_play),
+      Content => $self->app->appcmd->app->spudge->client->encode_json($to_play),
     );
 
     cmderr "I couldn't play that, I guess.  Sorry?" unless $res->is_success;
@@ -217,11 +217,11 @@ command 'recent' => (
     summary => 'show your recently played tracks',
   },
   sub ($self, $cmd, $rest) {
-    my $res = $self->app->appcmd->app->spotify_get(
+    my $res = $self->app->appcmd->app->spudge->client->api_get(
       '/me/player/recently-played',
     );
 
-    my $data = $self->app->appcmd->app->decode_json($res->decoded_content);
+    my $data = $self->app->appcmd->app->spudge->client->decode_json($res->decoded_content);
 
     if ($data->{items}->@*) {
       say colored('ping', "[Tracks]");
@@ -238,11 +238,11 @@ command 'top' => (
     summary => 'show your top tracks',
   },
   sub ($self, $cmd, $rest) {
-    my $res = $self->app->appcmd->app->spotify_get(
+    my $res = $self->app->appcmd->app->spudge->client->api_get(
       '/me/top/tracks?time_range=short_term',
     );
 
-    my $data = $self->app->appcmd->app->decode_json($res->decoded_content);
+    my $data = $self->app->appcmd->app->spudge->client->decode_json($res->decoded_content);
 
     if ($data->{items}->@*) {
       say colored('ping', "[Tracks]");
