@@ -167,7 +167,11 @@ sub _do_search ($self, $search, $types) {
     say colored('ping', "[Albums]");
     my $i = 0;
     for my $album (@albums) {
-      printf "% 3s. %s\n", ('r' . ++$i), $album->name;
+      printf "% 3s. %s by %s\n",
+        ('r' . ++$i),
+        Term::ANSIColor::colored(['ansi179'], $album->name),
+        Term::ANSIColor::colored(['ansi36'],
+          (join q{; }, map {; $_->name } $album->artists));
     }
     say q{};
   }
@@ -176,7 +180,9 @@ sub _do_search ($self, $search, $types) {
     say colored('ping', "[Artists]");
     my $i = 0;
     for my $artist (@artists) {
-      printf "% 3s. %s\n", ('a' . ++$i), $artist->name;
+      printf "% 3s. %s\n",
+        ('a' . ++$i),
+        Term::ANSIColor::colored(['ansi36'], $artist->name);
     }
 
     say q{};
@@ -186,7 +192,12 @@ sub _do_search ($self, $search, $types) {
     say colored('ping', "[Tracks]");
     my $i = 0;
     for my $track (@tracks) {
-      printf "% 3s. %s\n", ('t' . ++$i), $track->name;
+      printf "% 3s. %s (%s) by %s\n",
+        ('t' . ++$i),
+        Term::ANSIColor::colored(['ansi226'], $track->name),
+        Term::ANSIColor::colored(['ansi179'], $track->album->name),
+        Term::ANSIColor::colored(['ansi36'],
+          (join q{; }, map {; $_->name } $track->artists));
     }
   }
 }
