@@ -33,6 +33,9 @@ use CliM8::Commando -setup => {
 use CliM8::Commando::Completionist -all;
 
 use Safe::Isa;
+use Spudge::AO::Album;
+use Spudge::AO::Artist;
+use Spudge::AO::Track;
 use Spudge::Util;
 use URI;
 
@@ -151,9 +154,6 @@ sub _do_search ($self, $search, $types) {
 
   require Spudge::AO::SearchResult;
   require Spudge::AO::Page;
-  require Spudge::AO::Album;
-  require Spudge::AO::Artist;
-  require Spudge::AO::Track;
 
   my $data = $self->client->decode_json($res->decoded_content);
   my $result = Spudge::AO::SearchResult->from_hashref({
@@ -226,6 +226,31 @@ command 'dump' => (
     my $dump = Data::Dumper::Concise::Dumper($self->_last_search);
     open my $pager, "|-", "less", "-M";
     print $pager $dump;
+  },
+);
+
+command 'now' => (
+  help => {
+    summary => "show what's now playing",
+  },
+  sub ($self, $cmd, $rest) {
+    my $res = $self->api_get('/me/player');
+
+    my $data = $self->decode_json($res->decoded_content);
+
+    Spudge::Util->print_devices([ $data->{device} ]);
+
+    if ($data->{item} && $data->{item}{type} eq 'track') {
+      my $track   = Spudge::AO::Track->from_struct($data->{item});
+      my @artists = $track->artists;
+      say sprintf "Now playing %s by %s %s on the album %s.",
+        colored(['bold', 'white'], $track->name),
+        (@artists > 1 ? "artists" : "artist"),
+        _and_list(map {; colored(['bold', 'white'], $_->name) } @artists),
+        colored(['bold','white'], $track->album->name);
+    } else {
+      matesay "I don't know how to summarize what you're listening to.";
+    }
   },
 );
 
