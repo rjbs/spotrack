@@ -95,10 +95,13 @@ sub execute ($self, $opt, $args) {
     printf "%s %2i. %s by %s%s\n",
       $movement,
       $track->{position},
-      Term::ANSIColor::colored(['ansi229'], $track->{title}),
+      Term::ANSIColor::colored(['ansi226'], $track->{title}),
       Term::ANSIColor::colored(['ansi189'], @rest ? "$artist (&c.)" : $artist),
       ($track->{run_count} > 1
-        ? (Lingua::EN::Inflect::ORD($track->{run_count}) . " week on the chart")
+        ? Term::ANSIColor::colored(
+            ['ansi111'],
+            (q{ / } . Lingua::EN::Inflect::ORD($track->{run_count}) . " month")
+          )
         : q{});
   }
 }
