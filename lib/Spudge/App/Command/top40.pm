@@ -85,10 +85,10 @@ sub execute ($self, $opt, $args) {
   my $new   = Term::ANSIColor::colored([ 'ansi226' ], q{⭑});
 
   RANGE: for my $track (@$tracks) {
-    my $movement = ! defined $track->{last_position}            ? $new
-                 : $track->{last_position} > $track->{position} ? $up
-                 : $track->{last_position} < $track->{position} ? $down
-                 :                                                $same;
+    my $movement = ! defined $track->{previous_position}            ? $new
+                 : $track->{previous_position} > $track->{position} ? $up
+                 : $track->{previous_position} < $track->{position} ? $down
+                 :                                                    $same;
 
     my ($artist, @rest) = split /; /, $track->{artist};
 
