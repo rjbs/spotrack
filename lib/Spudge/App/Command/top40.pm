@@ -27,7 +27,6 @@ sub execute ($self, $opt, $args) {
   require Term::ANSIColor;
 
   my $Spudge  = Spudge->new;
-  my $token   = $Spudge->access_token;
 
   my ($human_id) = $Spudge->dbi_connector->dbh->selectrow_array(
     q{SELECT id FROM humans WHERE name = ?},
