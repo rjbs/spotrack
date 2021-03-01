@@ -41,7 +41,7 @@ use URI;
 
 my %COLOR = (
   album   => [ 'ansi179' ],
-  artist  => [ 'ansi36' ],
+  artist  => [ 'ansi189' ],
   track   => [ 'ansi226' ],
 );
 
@@ -323,7 +323,16 @@ command 'play' => (
       Content => $self->encode_json($to_play),
     );
 
-    cmderr "I couldn't play that, I guess.  Sorry?" unless $res->is_success;
+    unless ($res->is_success) {
+      if ($res->content_type eq 'application/json') {
+        my $data = $self->decode_json($res->decoded_content);
+        if ($data->{error} && $data->{error}{reason} eq 'NO_ACTIVE_DEVICE') {
+          cmderr "I couldn't play that because there's no active device.";
+        }
+      }
+
+      cmderr "I couldn't play that, I guess.  Sorry?";
+    }
 
     say "Now playing " . $self->_summarize($item) . ".";
   }
