@@ -286,20 +286,22 @@ sub _save_top_tracks ($self) {
           return;
         }
 
-        my $prev_snapshot_id = $dbh->selectrow_hashref(
-          q{SELECT *
+        my ($prev_snapshot_id) = $dbh->selectrow_array(
+          q{SELECT id
           FROM top_tracks_snapshots
-          WHERE human_id = ?
+          WHERE human_id = ? AND time_range = ?
           ORDER BY yyyymm DESC
           LIMIT 1},
           undef,
           $human_id,
+          $time_range,
         );
 
         my %last_track_data;
         if ($prev_snapshot_id) {
-          my $last_snapshot_tracks = $dbh->selectrow_hashref(
+          my $last_snapshot_tracks = $dbh->selectall_hashref(
             q{SELECT * FROM top_tracks_snapshot_tracks WHERE snapshot_id = ?},
+            'track_id',
             undef,
             $prev_snapshot_id,
           );
