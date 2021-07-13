@@ -28,7 +28,7 @@ sub execute ($self, $opt, $args) {
   my $dbh = $Spudge->dbi_connector->dbh;
 
   my ($human) = $dbh->selectrow_hashref(
-    q{SELECT id FROM humans WHERE name = ?},
+    q{SELECT id, is_active FROM humans WHERE name = ?},
     undef,
     $opt->human,
   );
@@ -51,13 +51,13 @@ sub execute ($self, $opt, $args) {
 
   $dbh->do(
     "INSERT INTO playlists (id, human_id, type, generator, is_mutable)
-    VALUES (?, ?, ?, ?)",
+    VALUES (?, ?, ?, ?, ?)",
     undef,
     $opt->id,
     $human->{id},
     $opt->type,
     q{-},
-    ($opt->is_immutable ? 0 : 1),
+    ($opt->immutable ? 0 : 1),
   );
 
   print "You are now tracking this person's playlist.  Weird.\n";
