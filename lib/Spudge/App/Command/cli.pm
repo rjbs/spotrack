@@ -17,15 +17,15 @@ sub execute ($self, $opt, $args) {
   require Term::ReadLine;
   require Term::ReadLine::Gnu;
 
-  require CliM8::HTTP;
-  require CliM8::Util;
+  require Yakker::HTTP;
+  require Yakker::Util;
 
   my $cli = Spudge::CLI->new({ appcmd => $self });
 
-  CliM8::Util::activityloop($cli->activity(boot => { opts => $opt }));
+  Yakker::Util::activityloop($cli->activity(boot => { opts => $opt }));
 
   say q{};
-  CliM8::Util::matesay("See you later…");
+  Yakker::Util::matesay("See you later…");
 }
 
 1;

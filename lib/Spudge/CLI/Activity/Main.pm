@@ -2,13 +2,12 @@ use v5.20.0;
 package Spudge::CLI::Activity::Main;
 
 use Moo;
-with 'CliM8::Activity',
-     'CliM8::Role::Readline';
+with 'Yakker::Role::Activity::Commando';
 
 use experimental qw(postderef signatures);
 use utf8;
 
-use CliM8::Util qw(
+use Yakker::Util qw(
   cmderr
   cmdmissing
   cmdnext
@@ -24,13 +23,13 @@ use CliM8::Util qw(
   prefix_re
 );
 
-use CliM8::Commando -setup => {
+use Yakker::Commando -setup => {
   help_sections => [
     { key => '',          title => 'The Basics' },
   ]
 };
 
-use CliM8::Commando::Completionist -all;
+use Yakker::Commando::Completionist -all;
 
 use Safe::Isa;
 use Spudge::AO::Album;
@@ -52,39 +51,8 @@ has client => (
   handles => [ qw( api_get api_put encode_json decode_json ) ],
 );
 
-sub get_input ($self, $prompt) {
-  my $input = $self->readline->readline($prompt);
-
-  return undef unless defined $input;
-
-  $input = decode('utf-8', $input, Encode::FB_CROAK);
-
-  $input =~ s/\A\s+//g;
-  $input =~ s/\s+\z//g;
-
-  return $input;
-}
-
-sub interact ($self) {
-  say q{};
-
-  my $prompt = colored_prompt(['ansi46'], 'spudge > ');
-
-  my $input = $self->get_input($prompt);
-
-  cmdlast unless defined $input;
-  cmdnext unless length $input;
-
-  my ($cmd, $rest) = split /\s+/, $input, 2;
-  if (my $command = $self->commando->command_for($cmd)) {
-    my $code = $command->{code};
-    $self->$code($cmd, $rest);
-    cmdnext;
-  }
-
-  cmderr("I don't know what you wanted to do!");
-
-  return $self;
+sub prompt_string {
+  return colored_prompt(['ansi46'], 'spudge > ');
 }
 
 command 'q.uit' => (
@@ -92,7 +60,7 @@ command 'q.uit' => (
   help    => {
     summary => 'enough already, just quit',
   },
-  sub { CliM8::LoopControl::Empty->new->throw },
+  sub { Yakker::LoopControl::Empty->new->throw },
 );
 
 command 'dev.ices' => (

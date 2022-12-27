@@ -2,12 +2,12 @@ use v5.20.0;
 package Spudge::CLI::Activity::Boot;
 
 use Moo;
-with 'CliM8::Activity';
+with 'Yakker::Role::Activity';
 
 use experimental qw(postderef signatures);
 use utf8;
 
-use CliM8::Util qw(
+use Yakker::Util qw(
   matesay
   errsay
   okaysay
@@ -18,7 +18,7 @@ sub interact ($self) {
 
   my $activity = $self->app->activity('main');
 
-  CliM8::LoopControl::Swap->new({ activity => $activity })->throw;
+  Yakker::LoopControl::Swap->new({ activity => $activity })->throw;
 }
 
 no Moo;
